@@ -1,0 +1,42 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<UseWPF>true</UseWPF>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Reference Include="YukkuriMovieMaker">
+			<HintPath>..\..\..\..\Desktop\YukkuriMovieMaker_v4_Lite\YukkuriMovieMaker.dll</HintPath>
+		</Reference>
+		<Reference Include="YukkuriMovieMaker.Controls">
+			<HintPath>..\..\..\..\Desktop\YukkuriMovieMaker_v4_Lite\YukkuriMovieMaker.Controls.dll</HintPath>
+		</Reference>
+		<Reference Include="YukkuriMovieMaker.Plugin">
+			<HintPath>..\..\..\..\Desktop\YukkuriMovieMaker_v4_Lite\YukkuriMovieMaker.Plugin.dll</HintPath>
+		</Reference>
+		<Reference Include="YukkuriMovieMaker.Plugin.Community">
+			<HintPath>..\..\..\..\Desktop\YukkuriMovieMaker_v4_Lite\YukkuriMovieMaker.Plugin.Community.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<!-- ビルド後イベント: DLL 自動コピー + Fドライブ連番バックアップ -->
+	<Target Name="PostBuild" AfterTargets="Build">
+		<PropertyGroup>
+			<PluginTargetFolder>C:\Users\hazimeyou\Downloads\YukkuriMovieMaker_v4_Lite\user\plugin\YMMResourcePackager</PluginTargetFolder>
+			<BackupRoot>F:\YMMResourcePackager</BackupRoot>
+		</PropertyGroup>
+
+		<!-- プラグインフォルダ作成 -->
+		<MakeDir Directories="$(PluginTargetFolder)" Condition="!Exists('$(PluginTargetFolder)')" />
+
+		<!-- DLL コピー -->
+		<Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginTargetFolder)" />
+
+		<!-- Fドライブ連番バックアップ (PowerShell 1行) -->
+		<Exec Command="powershell -NoProfile -Command &quot;$backupRoot='F:\YMMResourcePackager'; if (-not (Test-Path $backupRoot)) { New-Item -ItemType Directory -Path $backupRoot | Out-Null }; $existing=Get-ChildItem $backupRoot -Directory | Where-Object { $_.Name -match '^v\d+$' } | Sort-Object Name; if ($existing) { $last=[int]($existing[-1].Name.Substring(1)) } else { $last=0 }; $next='v{0:D3}' -f ($last+1); $targetDir=Join-Path $backupRoot $next; New-Item -ItemType Directory -Path $targetDir | Out-Null; Copy-Item '$(TargetPath)' -Destination $targetDir; exit 0&quot;" />
+	</Target>
+
+</Project>

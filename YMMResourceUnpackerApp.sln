@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36414.22 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YMMResourceUnpackerApp", "YMMResourceUnpackerApp\YMMResourceUnpackerApp.csproj", "{BC3208AB-6E80-4A22-82DA-FF48F9E35208}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YMMResourcePackager", "YMMResourcePackager\YMMResourcePackager.csproj", "{9C3C5EC9-100C-42EA-A330-FC427BAE1A23}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BC3208AB-6E80-4A22-82DA-FF48F9E35208}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BC3208AB-6E80-4A22-82DA-FF48F9E35208}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BC3208AB-6E80-4A22-82DA-FF48F9E35208}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BC3208AB-6E80-4A22-82DA-FF48F9E35208}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9C3C5EC9-100C-42EA-A330-FC427BAE1A23}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9C3C5EC9-100C-42EA-A330-FC427BAE1A23}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9C3C5EC9-100C-42EA-A330-FC427BAE1A23}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9C3C5EC9-100C-42EA-A330-FC427BAE1A23}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {94725873-C344-4E6C-81C8-AD3E7548B86C}
+	EndGlobalSection
+EndGlobal
