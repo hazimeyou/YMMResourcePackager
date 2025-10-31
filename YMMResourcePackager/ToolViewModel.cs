@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -172,9 +172,8 @@ namespace YMMResourcePackagerPlugin.ViewModel
 
                 string baseDir = Path.GetDirectoryName(SelectedProject)!;
                 string projectName = Path.GetFileNameWithoutExtension(SelectedProject);
-                string outputDir = Path.Combine(baseDir, "Packaged");
-                Directory.CreateDirectory(outputDir);
-                string outputPath = Path.Combine(outputDir, $"{projectName}.ymmpx");
+                string outputPath = Path.Combine(baseDir, $"{projectName}.ymmpx");
+
 
                 if (File.Exists(outputPath))
                 {
