@@ -47,6 +47,15 @@ YMM4素材同梱プラグインは、YukkuriMovieMaker のプロジェクト素�
 
 ---
 
+## 出力ファイルの例
+
+| 種類 | 説明 |
+| ---- | ---- |
+| **元のプロジェクト** | `C:\Users\<ユーザー名>\Videos\YMMProjects\MyProject.ymmp` |
+| **出力先ディレクトリ** | `C:\Users\<ユーザー名>\Videos\YMMProjects\` |
+| **生成されるファイル** | `C:\Users\<ユーザー名>\Videos\YMMProjects\MyProject.ymmpx` |
+
+
 ## ymmpx ファイルの関連付け
 
 - `.ymmpx` ファイルをダブルクリックで自動的に展開できるように、  
