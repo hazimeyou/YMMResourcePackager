@@ -1,0 +1,47 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build_and_release:
+    name: Build and Release
+    runs-on: windows-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Publish
+        run: dotnet publish --configuration Release -o publish
+
+      - name: Copy LICENSE to publish folder
+        run: Copy-Item ".\LICENSE" -Destination "publish\LICENSE"
+
+
+      - name: Copy README to publish folder
+        run: Copy-Item ".github\assets\readme.txt" -Destination "publish\readme.txt"
+
+      - name: Create ZIP
+        run: Compress-Archive -Path "publish\*" -DestinationPath "publish\YMMResourcePackager.zip"
+
+      - name: Rename ZIP to .ymme
+        run: Move-Item publish\YMMResourcePackager.zip publish\YMMResourcePackager.ymme
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+          artifacts: publish/YMMResourcePackager.ymme
+          draft: true
+          prerelease: true
