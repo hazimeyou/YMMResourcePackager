@@ -1,7 +1,4 @@
-﻿using System.ComponentModel;
-using System.Runtime.CompilerServices;
-
-namespace YMMResourcePackagerPlugin.ViewModel
+﻿namespace YMMResourcePackagerPlugin.ViewModel
 {
     public class BaseViewModel : INotifyPropertyChanged
     {

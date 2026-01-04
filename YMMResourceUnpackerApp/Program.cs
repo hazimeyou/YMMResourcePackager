@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.IO.Compression;
-using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Windows;
+﻿global using System.Diagnostics;
+global using System.IO.Compression;
+global using System.Text.Json;
+global using System.Text.Json.Nodes;
 
 namespace YMMResourceUnpackerApp
 {

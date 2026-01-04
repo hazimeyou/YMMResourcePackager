@@ -1,7 +1,4 @@
-﻿using System;
-using System.Windows.Input;
-
-namespace YMMResourcePackagerPlugin.ViewModel
+﻿namespace YMMResourcePackagerPlugin.ViewModel
 {
     public class RelayCommand : ICommand
     {

@@ -1,17 +1,3 @@
-using Microsoft.Win32;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.IO.Compression;
-using System.Linq;
-using System.Text.Json;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Input;
-using YMMResourcePackager;
-using YMMResourcePackagerPlugin.Models;  // ← ExcludeItem の定義場所を統一
-using YukkuriMovieMaker.Commons;
 
 namespace YMMResourcePackagerPlugin.ViewModel
 {
@@ -52,6 +38,57 @@ namespace YMMResourcePackagerPlugin.ViewModel
             AssociateYmmpxCommand = new RelayCommand(AssociateYmmpx);
             OpenExcludeSettingCommand = new RelayCommand(OpenExcludeSetting);
         }
+        private void OpenExcludeSetting()
+        {
+            if (string.IsNullOrEmpty(SelectedProject) || !File.Exists(SelectedProject))
+            {
+                MessageBox.Show("先にプロジェクトを選択してください。", "警告",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                string jsonText = File.ReadAllText(SelectedProject);
+                using JsonDocument doc = JsonDocument.Parse(jsonText);
+
+                var allFiles = FindFilePaths(doc.RootElement)
+                    .Distinct()
+                    .Select(f => new ExcludeItem { FilePath = f, IsExcluded = false })
+                    .ToList();
+
+                string excludePath = Path.Combine(
+                    PluginDirectory, "YMMResourcePackager", "exclude.json");
+
+                if (File.Exists(excludePath))
+                {
+                    var saved = JsonSerializer.Deserialize<List<ExcludeItem>>(
+                        File.ReadAllText(excludePath)) ?? new();
+
+                    var map = saved.ToDictionary(x => x.FilePath, x => x.IsExcluded);
+
+                    foreach (var item in allFiles)
+                        if (map.TryGetValue(item.FilePath, out bool v))
+                            item.IsExcluded = v;
+                }
+
+                var dlg = new ExcludeSettingWindow(allFiles)
+                {
+                    Owner = Application.Current.MainWindow
+                };
+                dlg.ShowDialog();
+
+                Directory.CreateDirectory(Path.GetDirectoryName(excludePath)!);
+                File.WriteAllText(
+                    excludePath,
+                    JsonSerializer.Serialize(dlg.ExcludeItems, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "エラー",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
 
         private void OpenProjectDialog()
         {
@@ -77,82 +114,23 @@ namespace YMMResourcePackagerPlugin.ViewModel
 
                 if (!File.Exists(appExe))
                 {
-                    MessageBox.Show($"アプリが見つかりません:\n{appExe}", "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"アプリが見つかりません:\n{appExe}", "エラー",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
 
-                var psi = new ProcessStartInfo
+                Process.Start(new ProcessStartInfo
                 {
                     FileName = appExe,
                     Arguments = "--associate",
                     UseShellExecute = true,
-                    Verb = "runas",
-                    WindowStyle = ProcessWindowStyle.Normal
-                };
-
-                Process.Start(psi);
+                    Verb = "runas"
+                });
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"関連付け実行中にエラー: {ex.Message}", "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void OpenExcludeSetting()
-        {
-            if (string.IsNullOrEmpty(SelectedProject) || !File.Exists(SelectedProject))
-            {
-                MessageBox.Show("先にプロジェクトを選択してください。", "警告", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            try
-            {
-                // プロジェクト JSON を読み込む
-                string jsonText = File.ReadAllText(SelectedProject);
-                using JsonDocument doc = JsonDocument.Parse(jsonText);
-
-                // プロジェクト内の素材パスを抽出
-                var allFiles = FindFilePaths(doc.RootElement)
-                               .Select(f => new ExcludeItem { FilePath = f, IsExcluded = false })
-                               .ToList();
-
-                // 除外設定ファイル
-                string excludePath = Path.Combine(PluginDirectory, "YMMResourcePackager", "exclude.json");
-
-                // 既存の除外設定を読み込んで反映
-                if (File.Exists(excludePath))
-                {
-                    try
-                    {
-                        var excludedFiles = JsonSerializer.Deserialize<List<ExcludeItem>>(File.ReadAllText(excludePath)) ?? new();
-                        var excludedDict = excludedFiles.ToDictionary(e => e.FilePath, e => e.IsExcluded);
-
-                        foreach (var item in allFiles)
-                        {
-                            if (excludedDict.TryGetValue(item.FilePath, out bool isEx))
-                                item.IsExcluded = isEx;
-                        }
-                    }
-                    catch (Exception jsonEx)
-                    {
-                        MessageBox.Show($"除外リストの読み込みに失敗しました。\n{jsonEx.Message}", "警告", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    }
-                }
-
-                // GUIを開く
-                var dlg = new ExcludeSettingWindow(allFiles);
-                dlg.Owner = Application.Current.MainWindow;
-                dlg.ShowDialog();
-
-                // 保存
-                var updatedList = dlg.ExcludeItems;
-                Directory.CreateDirectory(Path.GetDirectoryName(excludePath)!);
-                File.WriteAllText(excludePath, JsonSerializer.Serialize(updatedList, new JsonSerializerOptions { WriteIndented = true }));
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"除外設定の表示に失敗しました。\n{ex.Message}", "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(ex.Message, "エラー",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -160,8 +138,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
         {
             if (string.IsNullOrEmpty(SelectedProject) || !File.Exists(SelectedProject))
             {
-                Status = "プロジェクトが選択されていないか、存在しません。";
-                Progress = 0;
+                Status = "プロジェクトが選択されていません。";
                 return;
             }
 
@@ -174,112 +151,72 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 string projectName = Path.GetFileNameWithoutExtension(SelectedProject);
                 string outputPath = Path.Combine(baseDir, $"{projectName}.ymmpx");
 
-
+                // 上書き確認
                 if (File.Exists(outputPath))
                 {
-                    var result = MessageBox.Show(
-                        $"出力先に既存ファイルがあります:\n{outputPath}\n\n上書きしますか？\nいいえで連番、キャンセルで処理中止。",
-                        "ファイルが存在します",
+                    var r = MessageBox.Show(
+                        "既存ファイルがあります。上書きしますか？",
+                        "確認",
                         MessageBoxButton.YesNoCancel,
-                        MessageBoxImage.Warning,
-                        MessageBoxResult.Cancel);
+                        MessageBoxImage.Warning);
 
-                    switch (result)
+                    if (r == MessageBoxResult.Cancel) return;
+                    if (r == MessageBoxResult.No)
                     {
-                        case MessageBoxResult.Yes:
-                            File.Delete(outputPath);
-                            break;
-                        case MessageBoxResult.No:
-                            int counter = 1;
-                            string baseName = Path.GetFileNameWithoutExtension(outputPath);
-                            string ext = Path.GetExtension(outputPath);
-                            string dir = Path.GetDirectoryName(outputPath)!;
-                            string newPath = outputPath;
-                            while (File.Exists(newPath))
-                            {
-                                newPath = Path.Combine(dir, $"{baseName}_{counter}{ext}");
-                                counter++;
-                            }
-                            outputPath = newPath;
-                            break;
-                        case MessageBoxResult.Cancel:
-                            Status = "処理をキャンセルしました。";
-                            Progress = 0;
-                            return;
+                        int i = 1;
+                        while (File.Exists(outputPath))
+                            outputPath = Path.Combine(baseDir, $"{projectName}_{i++}.ymmpx");
                     }
+                    else File.Delete(outputPath);
                 }
 
-                // プロジェクト内素材を探索
+                // 素材取得
                 List<string> resources = new();
-                string jsonText = await File.ReadAllTextAsync(SelectedProject);
-                using (JsonDocument doc = JsonDocument.Parse(jsonText))
+                using (var doc = JsonDocument.Parse(await File.ReadAllTextAsync(SelectedProject)))
                 {
-                    var filePaths = doc.RootElement
-                                       .EnumerateObject()
-                                       .SelectMany(e => FindFilePaths(e.Value))
-                                       .Distinct();
-
-                    foreach (var path in filePaths)
-                        if (File.Exists(path))
-                            resources.Add(path);
+                    foreach (var p in FindFilePaths(doc.RootElement).Distinct())
+                        if (File.Exists(p))
+                            resources.Add(p);
                 }
 
-                // 除外設定を適用
-                string excludePathFile = Path.Combine(PluginDirectory, "YMMResourcePackager", "exclude.json");
-                HashSet<string> excluded = new(StringComparer.OrdinalIgnoreCase);
-
-                if (File.Exists(excludePathFile))
-                {
-                    var list = JsonSerializer.Deserialize<List<ExcludeItem>>(File.ReadAllText(excludePathFile)) ?? new();
-                    excluded = new HashSet<string>(
-                        list.Where(x => x.IsExcluded).Select(x => x.FilePath),
-                        StringComparer.OrdinalIgnoreCase);
-                }
-
-                resources = resources
-                    .Where(r => !excluded.Contains(r))
-                    .ToList();
-
-                if (excluded.Count > 0)
-                {
-                    Status = $"{excluded.Count} 個の素材を除外しました。";
-                }
-
-                Status = $"ZIP作成中... ({resources.Count} 個の素材)";
+                Status = $"ZIP作成中... ({resources.Count} 個)";
                 Progress = 0;
 
                 await Task.Run(() =>
                 {
                     string tempDir = Path.Combine(Path.GetTempPath(), "YMMResourcePackager", Guid.NewGuid().ToString());
                     Directory.CreateDirectory(tempDir);
+
                     string linksFile = Path.Combine(tempDir, "links.txt");
+
                     var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    var fileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
                     using (var writer = new StreamWriter(linksFile))
                     {
                         for (int i = 0; i < resources.Count; i++)
                         {
-                            string file = resources[i];
-                            string fileName = Path.GetFileName(file);
-                            string uniqueName = fileName;
-                            int counter = 1;
+                            string src = resources[i];
+                            string name = Path.GetFileName(src);
+                            string unique = name;
+                            int c = 1;
 
-                            while (usedNames.Contains(uniqueName))
+                            while (usedNames.Contains(unique))
                             {
-                                string nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
-                                string ext = Path.GetExtension(fileName);
-                                uniqueName = $"{nameWithoutExt}_{counter}{ext}";
-                                counter++;
+                                unique = $"{Path.GetFileNameWithoutExtension(name)}_{c++}{Path.GetExtension(name)}";
                             }
 
-                            usedNames.Add(uniqueName);
-                            writer.WriteLine($"{file},resources/{uniqueName}");
+                            usedNames.Add(unique);
+                            string zipPath = $"resources/{unique}";
+                            fileMap[src] = zipPath;
 
-                            int progressIndex = i;
+                            writer.WriteLine($"{src},{zipPath}");
+
+                            int index = i;
                             Application.Current.Dispatcher.Invoke(() =>
                             {
-                                Progress = (double)(progressIndex + 1) / resources.Count * 100;
-                                Status = $"ZIP作成中... {progressIndex + 1}/{resources.Count}";
+                                Progress = (double)(index + 1) / resources.Count * 100;
+                                Status = $"ZIP作成中... {index + 1}/{resources.Count}";
                             });
                         }
                     }
@@ -289,24 +226,36 @@ namespace YMMResourcePackagerPlugin.ViewModel
                         zip.CreateEntryFromFile(SelectedProject, "project.ymmp");
                         zip.CreateEntryFromFile(linksFile, "links.txt");
 
-                        foreach (var file in resources)
-                        {
-                            string uniqueName = Path.GetFileName(file);
-                            zip.CreateEntryFromFile(file, "resources/" + uniqueName);
-                        }
+                        foreach (var kv in fileMap)
+                            zip.CreateEntryFromFile(kv.Key, kv.Value);
                     }
+
+                    Directory.Delete(tempDir, true);
                 });
 
+                // ★ 完了通知（ここが追加点）
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    Status = $".ymmpx パッケージ作成完了: {outputPath}";
                     Progress = 100;
+                    Status = $"完了: {outputPath}";
+
+                    MessageBox.Show(
+                        $"パッケージ作成が完了しました。\n\n{outputPath}",
+                        "完了",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
                 });
             }
             catch (Exception ex)
             {
                 Status = $"エラー: {ex.Message}";
                 Progress = 0;
+
+                MessageBox.Show(
+                    ex.Message,
+                    "エラー",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
         }
 
@@ -314,20 +263,20 @@ namespace YMMResourcePackagerPlugin.ViewModel
         {
             if (element.ValueKind == JsonValueKind.Object)
             {
-                foreach (var prop in element.EnumerateObject())
+                foreach (var p in element.EnumerateObject())
                 {
-                    if (prop.Name == "FilePath" && prop.Value.ValueKind == JsonValueKind.String)
-                        yield return prop.Value.GetString()!;
+                    if (p.Name == "FilePath" && p.Value.ValueKind == JsonValueKind.String)
+                        yield return p.Value.GetString()!;
                     else
-                        foreach (var child in FindFilePaths(prop.Value))
-                            yield return child;
+                        foreach (var c in FindFilePaths(p.Value))
+                            yield return c;
                 }
             }
             else if (element.ValueKind == JsonValueKind.Array)
             {
-                foreach (var item in element.EnumerateArray())
-                    foreach (var child in FindFilePaths(item))
-                        yield return child;
+                foreach (var i in element.EnumerateArray())
+                    foreach (var c in FindFilePaths(i))
+                        yield return c;
             }
         }
     }
