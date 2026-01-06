@@ -5,7 +5,7 @@
 		<Nullable>enable</Nullable>
 		<UseWPF>true</UseWPF>
 		<ImplicitUsings>enable</ImplicitUsings>
-		<Version>0.1.3</Version>
+		<Version>0.1.2</Version>
 	</PropertyGroup>
 
 	<ItemGroup Condition="Exists('$(YMM4_PATH)\YukkuriMovieMaker.Plugin.dll')">
