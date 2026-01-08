@@ -1,11 +1,38 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-	  <Version>0.1.2</Version>
-  </PropertyGroup>
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<Version Condition="'$(Version)'==''">0.0.0</Version>
+		<PublishSingleFile>true</PublishSingleFile>
+		<SelfContained>true</SelfContained>
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<YMM4_PATH>C:\Users\yu-za-hazimeyou\Desktop\YukkuriMovieMaker_v4_Lite</YMM4_PATH>
+	</PropertyGroup>
+	<Target Name="CopyToYMM4" AfterTargets="Build"
+			Condition="Exists('$(YMM4_PATH)')">
 
+		<!-- コピー先フォルダ -->
+		<PropertyGroup>
+			<PluginOutputDir>
+				$(YMM4_PATH)\user\plugin\YMMResourcePackager
+			</PluginOutputDir>
+		</PropertyGroup>
+
+		<!-- フォルダ作成 -->
+		<MakeDir Directories="$(PluginOutputDir)"
+				 Condition="!Exists('$(PluginOutputDir)')" />
+
+		<!-- コピー対象（自分のDLLのみ） -->
+		<ItemGroup>
+			<PluginFiles Include="$(TargetDir)$(AssemblyName).dll" />
+			<PluginFiles Include="$(TargetDir)$(AssemblyName).exe" />
+		</ItemGroup>
+
+		<!-- コピー -->
+		<Copy SourceFiles="@(PluginFiles)"
+			  DestinationFolder="$(PluginOutputDir)" />
+	</Target>
 </Project>

@@ -5,8 +5,10 @@
 		<Nullable>enable</Nullable>
 		<UseWPF>true</UseWPF>
 		<ImplicitUsings>enable</ImplicitUsings>
-		<Version>0.1.2</Version>
+		<Version Condition="'$(Version)'==''">0.0.0</Version>
+		<YMM4_PATH>C:\Users\yu-za-hazimeyou\Desktop\YukkuriMovieMaker_v4_Lite</YMM4_PATH>
 	</PropertyGroup>
+
 
 	<ItemGroup Condition="Exists('$(YMM4_PATH)\YukkuriMovieMaker.Plugin.dll')">
 		<Reference Include="YukkuriMovieMaker.Plugin"
@@ -25,5 +27,31 @@
 				   HintPath="..\libs\YukkuriMovieMaker.Controls.dll"
 				   Private="false" ExcludeAssets="runtime" />
 	</ItemGroup>
+	<Target Name="CopyToYMM4" AfterTargets="Build"
+			Condition="Exists('$(YMM4_PATH)')">
+
+		<!-- コピー先フォルダ -->
+		<PropertyGroup>
+			<PluginOutputDir>
+				$(YMM4_PATH)\user\plugin\$(AssemblyName)
+			</PluginOutputDir>
+		</PropertyGroup>
+
+		<!-- フォルダ作成 -->
+		<MakeDir Directories="$(PluginOutputDir)"
+				 Condition="!Exists('$(PluginOutputDir)')" />
+
+		<!-- コピー対象（自分のDLLのみ） -->
+		<ItemGroup>
+			<PluginFiles Include="$(TargetDir)$(AssemblyName).dll" />
+		</ItemGroup>
+
+		<!-- コピー -->
+		<Copy SourceFiles="@(PluginFiles)"
+			  DestinationFolder="$(PluginOutputDir)" />
+	</Target>
+
+
 
 </Project>
+

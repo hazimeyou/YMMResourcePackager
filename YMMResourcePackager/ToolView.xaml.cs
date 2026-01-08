@@ -1,7 +1,4 @@
-﻿using System.Windows.Controls;
-using YMMResourcePackagerPlugin.ViewModel;
-
-namespace YMMResourcePackagerPlugin.View
+﻿namespace YMMResourcePackagerPlugin.View
 {
     public partial class ToolView : UserControl
     {
