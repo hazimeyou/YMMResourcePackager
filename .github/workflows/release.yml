@@ -27,10 +27,11 @@ jobs:
           echo "VERSION=$version" >> $env:GITHUB_ENV
 
       - name: Build
-        run: dotnet build -c Release -p:Version=$VERSION
+        run: dotnet build -c Release -p:VersionPrefix=$VERSION
 
       - name: Publish
-        run: dotnet publish -c Release -p:Version=$VERSION -o publish
+        run: dotnet publish -c Release -p:VersionPrefix=$VERSION -o publish
+
 
       - name: Copy LICENSE
         run: Copy-Item "LICENSE" "publish\LICENSE"
