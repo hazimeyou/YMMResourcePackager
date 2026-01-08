@@ -21,6 +21,9 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Build
+        run: dotnet build -c Release -p:Version=${{ github.ref_name }}
+
       - name: Publish
         run: dotnet publish --configuration Release -o publish
 
