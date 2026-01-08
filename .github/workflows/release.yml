@@ -40,6 +40,7 @@ jobs:
 
       - name: Prepare Package Folder
         run: |
+          if (Test-Path package) { Remove-Item package -Recurse -Force }
           New-Item -ItemType Directory -Path package
           Copy-Item publish\* package -Recurse
 
