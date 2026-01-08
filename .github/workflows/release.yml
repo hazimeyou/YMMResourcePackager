@@ -7,7 +7,6 @@ on:
 
 jobs:
   build_and_release:
-    name: Build and Release
     runs-on: windows-latest
 
     permissions:
@@ -21,30 +20,40 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Set Version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+
       - name: Build
-        run: dotnet build -c Release -p:Version=${{ github.ref_name }}
+        run: dotnet build -c Release -p:Version=$VERSION
 
       - name: Publish
-        run: dotnet publish --configuration Release -o publish
+        run: dotnet publish -c Release -p:Version=$VERSION -o publish
 
-      - name: Copy LICENSE to publish folder
-        run: Copy-Item ".\LICENSE" -Destination "publish\LICENSE"
+      - name: Copy LICENSE
+        run: Copy-Item "LICENSE" "publish\LICENSE"
 
+      - name: Copy README
+        run: Copy-Item ".github\assets\readme.txt" "publish\readme.txt"
 
-      - name: Copy README to publish folder
-        run: Copy-Item ".github\assets\readme.txt" -Destination "publish\readme.txt"
+      - name: Prepare Package Folder
+        run: |
+          New-Item -ItemType Directory -Path package
+          Copy-Item publish\* package -Recurse
 
       - name: Create ZIP
-        run: Compress-Archive -Path "publish\*" -DestinationPath "publish\YMMResourcePackager.zip"
+        run: Compress-Archive -Path "package\*" -DestinationPath "YMMResourcePackager.zip"
 
       - name: Rename ZIP to .ymme
-        run: Move-Item publish\YMMResourcePackager.zip publish\YMMResourcePackager.ymme
+        run: Move-Item YMMResourcePackager.zip YMMResourcePackager.ymme
 
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
-          artifacts: publish/YMMResourcePackager.ymme
+          artifacts: YMMResourcePackager.ymme
           draft: true
           prerelease: true
