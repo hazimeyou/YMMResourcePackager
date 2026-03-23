@@ -78,4 +78,21 @@
 		<Copy SourceFiles="@(PluginFiles)"
 			  DestinationFolder="$(PluginOutputDir)" />
 	</Target>
+
+	<!-- Release の通常 Build 時も Publish 出力を作って YMM へコピーする -->
+	<Target Name="PublishReleaseForYMMOnBuild"
+			AfterTargets="Build"
+			Condition="Exists('$(YMM4_PATH)') and '$(Configuration)' == 'Release' and '$(_ReleaseBuildPublishDone)' != 'true'">
+		<MSBuild Projects="$(MSBuildProjectFullPath)"
+				 Targets="Publish"
+				 Properties="Configuration=$(Configuration);
+							 RuntimeIdentifier=$(RuntimeIdentifier);
+							 PublishSingleFile=$(PublishSingleFile);
+							 PublishSelfContained=$(PublishSelfContained);
+							 SelfContained=$(SelfContained);
+							 EnableCompressionInSingleFile=$(EnableCompressionInSingleFile);
+							 NoBuild=true;
+							 YMM4_PATH=$(YMM4_PATH);
+							 _ReleaseBuildPublishDone=true" />
+	</Target>
 </Project>
