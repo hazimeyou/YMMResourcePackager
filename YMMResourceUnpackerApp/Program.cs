@@ -1,5 +1,8 @@
 ﻿global using System.Diagnostics;
 global using System.IO.Compression;
+global using Microsoft.Win32;
+global using System.Runtime.InteropServices;
+global using System.Runtime.Versioning;
 global using System.Text.Json;
 global using System.Text.Json.Nodes;
 
@@ -9,9 +12,15 @@ namespace YMMResourceUnpackerApp
     {
         static void Main(string[] args)
         {
-            // 管理者権限での関連付け
+            // ユーザー単位での関連付け
             if (args.Length > 0 && args[0] == "--associate")
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    Console.WriteLine("この機能は Windows でのみ利用できます。");
+                    return;
+                }
+
                 EnsureFileAssociation();
                 return;
             }
@@ -73,18 +82,7 @@ namespace YMMResourceUnpackerApp
                 Console.WriteLine("展開中...");
                 ZipFile.ExtractToDirectory(ymmpxPath, finalDir);
 
-                // links.txt 読み込み
-                string linksPath = Path.Combine(finalDir, "links.txt");
-                var linkMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                if (File.Exists(linksPath))
-                {
-                    foreach (var line in File.ReadAllLines(linksPath))
-                    {
-                        var parts = line.Split(',', 2);
-                        if (parts.Length == 2)
-                            linkMap[parts[0].Trim()] = Path.Combine(finalDir, parts[1].Trim());
-                    }
-                }
+                var linkMap = LoadLinkMap(finalDir);
 
                 // ymmp ファイル探索
                 string ymmpPath = Directory.GetFiles(finalDir, "*.ymmp", SearchOption.AllDirectories).FirstOrDefault() ?? "";
@@ -127,6 +125,37 @@ namespace YMMResourceUnpackerApp
             }
         }
 
+        static Dictionary<string, string> LoadLinkMap(string baseDir)
+        {
+            string linksJsonPath = Path.Combine(baseDir, "links.json");
+            if (File.Exists(linksJsonPath))
+            {
+                var jsonMap = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(linksJsonPath));
+                if (jsonMap is not null)
+                {
+                    return jsonMap.ToDictionary(
+                        x => x.Key,
+                        x => Path.Combine(baseDir, x.Value),
+                        StringComparer.OrdinalIgnoreCase);
+                }
+            }
+
+            // Backward compatibility for old packages.
+            string linksPath = Path.Combine(baseDir, "links.txt");
+            var linkMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (File.Exists(linksPath))
+            {
+                foreach (var line in File.ReadAllLines(linksPath))
+                {
+                    var parts = line.Split(',', 2);
+                    if (parts.Length == 2)
+                        linkMap[parts[0].Trim()] = Path.Combine(baseDir, parts[1].Trim());
+                }
+            }
+
+            return linkMap;
+        }
+
         /// <summary>
         /// 再帰的に FilePath を書き換える
         /// </summary>
@@ -142,11 +171,22 @@ namespace YMMResourceUnpackerApp
                         string? path = val.GetValue<string>();
                         if (!string.IsNullOrEmpty(path))
                         {
-                            var match = linkMap.FirstOrDefault(x => path.Contains(x.Key, StringComparison.OrdinalIgnoreCase));
-                            if (!string.IsNullOrEmpty(match.Key))
+                            if (linkMap.TryGetValue(path, out var resolved))
                             {
-                                obj["FilePath"] = match.Value;
+                                obj["FilePath"] = resolved;
                                 count++;
+                            }
+                            else
+                            {
+                                var match = linkMap
+                                    .Where(x => path.Contains(x.Key, StringComparison.OrdinalIgnoreCase))
+                                    .OrderByDescending(x => x.Key.Length)
+                                    .FirstOrDefault();
+                                if (!string.IsNullOrEmpty(match.Key))
+                                {
+                                    obj["FilePath"] = match.Value;
+                                    count++;
+                                }
                             }
                         }
                     }
@@ -157,7 +197,10 @@ namespace YMMResourceUnpackerApp
             else if (node is JsonArray arr)
             {
                 foreach (var child in arr)
-                    count += ReplaceFilePaths(child, linkMap);
+                {
+                    if (child != null)
+                        count += ReplaceFilePaths(child, linkMap);
+                }
             }
             return count;
         }
@@ -165,6 +208,7 @@ namespace YMMResourceUnpackerApp
         /// <summary>
         /// .ymmpx を自作アプリに関連付け
         /// </summary>
+        [SupportedOSPlatform("windows")]
         static void EnsureFileAssociation()
         {
             try
@@ -173,27 +217,44 @@ namespace YMMResourceUnpackerApp
                 string progId = "YMMResourcePackagerFile";
                 string appPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "YMMResourceUnpackerApp.exe");
 
-                using (var key = Microsoft.Win32.Registry.ClassesRoot.CreateSubKey(ext))
+                using (var key = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{ext}"))
                 {
                     key.SetValue("", progId);
                 }
 
-                using (var key = Microsoft.Win32.Registry.ClassesRoot.CreateSubKey(progId))
+                using (var key = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{progId}"))
                 {
                     key.SetValue("", "YMM Resource Packager File");
+                    using (var iconKey = key.CreateSubKey("DefaultIcon"))
+                    {
+                        iconKey?.SetValue("", $"\"{appPath}\",0");
+                    }
                     using (var shellKey = key.CreateSubKey("shell\\open\\command"))
                     {
                         shellKey.SetValue("", $"\"{appPath}\" \"%1\"");
                     }
                 }
 
-                Console.WriteLine(".ymmpx の関連付けが完了しました。");
+                NotifyShellAssociationChanged();
+
+                Console.WriteLine(".ymmpx の関連付けが完了しました（ユーザー単位）。");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"関連付けに失敗しました: {ex.Message}");
             }
         }
+
+        [SupportedOSPlatform("windows")]
+        private static void NotifyShellAssociationChanged()
+        {
+            const int SHCNE_ASSOCCHANGED = 0x08000000;
+            const uint SHCNF_IDLIST = 0x0000;
+            SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
+        }
+
+        [DllImport("shell32.dll")]
+        private static extern void SHChangeNotify(int wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);
 
     }
 }

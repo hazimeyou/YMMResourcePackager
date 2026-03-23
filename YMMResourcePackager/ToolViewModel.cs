@@ -38,6 +38,26 @@ namespace YMMResourcePackagerPlugin.ViewModel
             AssociateYmmpxCommand = new RelayCommand(AssociateYmmpx);
             OpenExcludeSettingCommand = new RelayCommand(OpenExcludeSetting);
         }
+
+        private static string GetExcludePath()
+        {
+            return Path.Combine(PluginDirectory, "YMMResourcePackager", "exclude.json");
+        }
+
+        private static HashSet<string> LoadExcludedFiles()
+        {
+            string excludePath = GetExcludePath();
+            if (!File.Exists(excludePath))
+            {
+                return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            var saved = JsonSerializer.Deserialize<List<ExcludeItem>>(File.ReadAllText(excludePath)) ?? new();
+            return saved
+                .Where(x => x.IsExcluded && !string.IsNullOrWhiteSpace(x.FilePath))
+                .Select(x => x.FilePath)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
         private void OpenExcludeSetting()
         {
             if (string.IsNullOrEmpty(SelectedProject) || !File.Exists(SelectedProject))
@@ -57,8 +77,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
                     .Select(f => new ExcludeItem { FilePath = f, IsExcluded = false })
                     .ToList();
 
-                string excludePath = Path.Combine(
-                    PluginDirectory, "YMMResourcePackager", "exclude.json");
+                string excludePath = GetExcludePath();
 
                 if (File.Exists(excludePath))
                 {
@@ -76,7 +95,8 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 {
                     Owner = Application.Current.MainWindow
                 };
-                dlg.ShowDialog();
+                if (dlg.ShowDialog() != true)
+                    return;
 
                 Directory.CreateDirectory(Path.GetDirectoryName(excludePath)!);
                 File.WriteAllText(
@@ -123,8 +143,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 {
                     FileName = appExe,
                     Arguments = "--associate",
-                    UseShellExecute = true,
-                    Verb = "runas"
+                    UseShellExecute = true
                 });
             }
             catch (Exception ex)
@@ -171,11 +190,12 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 }
 
                 // 素材取得
+                var excludedFiles = LoadExcludedFiles();
                 List<string> resources = new();
                 using (var doc = JsonDocument.Parse(await File.ReadAllTextAsync(SelectedProject)))
                 {
                     foreach (var p in FindFilePaths(doc.RootElement).Distinct())
-                        if (File.Exists(p))
+                        if (File.Exists(p) && !excludedFiles.Contains(p))
                             resources.Add(p);
                 }
 
@@ -188,6 +208,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
                     Directory.CreateDirectory(tempDir);
 
                     string linksFile = Path.Combine(tempDir, "links.txt");
+                    string linksJsonFile = Path.Combine(tempDir, "links.json");
 
                     var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     var fileMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -221,10 +242,15 @@ namespace YMMResourcePackagerPlugin.ViewModel
                         }
                     }
 
+                    File.WriteAllText(
+                        linksJsonFile,
+                        JsonSerializer.Serialize(fileMap, new JsonSerializerOptions { WriteIndented = true }));
+
                     using (var zip = ZipFile.Open(outputPath, ZipArchiveMode.Create))
                     {
                         zip.CreateEntryFromFile(SelectedProject, "project.ymmp");
                         zip.CreateEntryFromFile(linksFile, "links.txt");
+                        zip.CreateEntryFromFile(linksJsonFile, "links.json");
 
                         foreach (var kv in fileMap)
                             zip.CreateEntryFromFile(kv.Key, kv.Value);
