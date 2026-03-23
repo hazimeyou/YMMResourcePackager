@@ -57,6 +57,18 @@
 		<MakeDir Directories="$(PluginOutputDir)"
 				 Condition="!Exists('$(PluginOutputDir)')" />
 
+		<!-- 以前の Unpacker 配布残骸を削除して単一EXE構成にする -->
+		<ItemGroup>
+			<PluginDirFiles Include="$(PluginOutputDir)\*.*" />
+			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.dll" />
+			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.pdb" />
+			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.deps.json" />
+			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.exe" />
+			<StalePluginFiles Include="@(PluginDirFiles)"
+							  Exclude="@(KeepPluginFiles)" />
+		</ItemGroup>
+		<Delete Files="@(StalePluginFiles)" ContinueOnError="true" />
+
 		<!-- Release は publish 成果物（単一EXE, ランタイム同梱）をコピー -->
 		<ItemGroup>
 			<PluginFiles Include="$(PublishDir)$(AssemblyName).exe" />
