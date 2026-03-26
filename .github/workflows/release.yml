@@ -27,17 +27,39 @@ jobs:
           echo "VERSION=$version" >> $env:GITHUB_ENV
 
       - name: Build
-        run: dotnet build -c Release -p:VersionPrefix=$VERSION
+        run: dotnet build .\YMMResourceUnpackerApp.sln -c Release -p:Version=$VERSION
 
       - name: Publish
-        run: dotnet publish -c Release -p:VersionPrefix=$VERSION -o publish
-
+        run: dotnet publish .\YMMResourceUnpackerApp\YMMResourceUnpackerApp.csproj -c Release -p:Version=$VERSION -o publish
 
       - name: Copy LICENSE
         run: Copy-Item "LICENSE" "publish\LICENSE"
 
       - name: Copy README
-        run: Copy-Item ".github\assets\readme.txt" "publish\readme.txt"
+        run: Copy-Item ".github\assets\README.txt" "publish\readme.txt"
+
+      - name: Collect Plugin Files
+        shell: pwsh
+        run: |
+          $pluginBin = "YMMResourcePackager\bin\Release\net10.0-windows"
+          $requiredFiles = @(
+            "YMMResourcePackager.dll",
+            "YMMResourcePackager.deps.json",
+            "YmmpxLib.dll"
+          )
+
+          foreach ($file in $requiredFiles) {
+            $src = Join-Path $pluginBin $file
+            if (!(Test-Path $src)) {
+              throw "Required file not found: $src"
+            }
+            Copy-Item $src "publish\$file" -Force
+          }
+
+          $pdb = Join-Path $pluginBin "YMMResourcePackager.pdb"
+          if (Test-Path $pdb) {
+            Copy-Item $pdb "publish\YMMResourcePackager.pdb" -Force
+          }
 
       - name: Prepare Package Folder
         run: |

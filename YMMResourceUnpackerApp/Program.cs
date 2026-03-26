@@ -1,10 +1,8 @@
 ﻿global using System.Diagnostics;
-global using System.IO.Compression;
 global using Microsoft.Win32;
 global using System.Runtime.InteropServices;
 global using System.Runtime.Versioning;
-global using System.Text.Json;
-global using System.Text.Json.Nodes;
+global using YmmpxLib;
 
 namespace YMMResourceUnpackerApp
 {
@@ -65,51 +63,16 @@ namespace YMMResourceUnpackerApp
                 return;
             }
 
-            // 以下展開・リンク書き換えは元コードのまま
             string baseName = Path.GetFileNameWithoutExtension(ymmpxPath);
-            string tempDir = Path.Combine(appDir, baseName);
-            int suffix = 1;
-            string finalDir = tempDir;
-            while (Directory.Exists(finalDir))
-            {
-                finalDir = tempDir + $"_{suffix}";
-                suffix++;
-            }
-            Directory.CreateDirectory(finalDir);
+            string desiredDir = Path.Combine(appDir, baseName);
+            string finalDir = YmmpxPackageService.GetAvailableDirectoryPath(desiredDir);
 
             try
             {
                 Console.WriteLine("展開中...");
-                ZipFile.ExtractToDirectory(ymmpxPath, finalDir);
-
-                var linkMap = LoadLinkMap(finalDir);
-
-                // ymmp ファイル探索
-                string ymmpPath = Directory.GetFiles(finalDir, "*.ymmp", SearchOption.AllDirectories).FirstOrDefault() ?? "";
-                if (string.IsNullOrEmpty(ymmpPath))
-                {
-                    Console.WriteLine("プロジェクトファイル (.ymmp) が見つかりません。");
-                    return;
-                }
-
-                // JSON 読み込み
-                string json = File.ReadAllText(ymmpPath);
-                JsonNode? root = JsonNode.Parse(json);
-                if (root == null)
-                {
-                    Console.WriteLine("JSON の解析に失敗しました。");
-                    return;
-                }
-
-                // FilePath の書き換え
-                ReplaceFilePaths(root, linkMap);
-
-                var options = new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                };
-                File.WriteAllText(ymmpPath, root.ToJsonString(options));
+                var unpackResult = YmmpxPackageService.ExtractAndRestoreProject(ymmpxPath, finalDir);
+                var ymmpPath = unpackResult.ProjectFilePath;
+                Console.WriteLine($"リンク復元完了: {unpackResult.ReplacedPathCount} 件");
 
                 // YMM 起動
                 Process.Start(new ProcessStartInfo
@@ -123,86 +86,6 @@ namespace YMMResourceUnpackerApp
             {
                 Console.WriteLine($"エラー: {ex.Message}");
             }
-        }
-
-        static Dictionary<string, string> LoadLinkMap(string baseDir)
-        {
-            string linksJsonPath = Path.Combine(baseDir, "links.json");
-            if (File.Exists(linksJsonPath))
-            {
-                var jsonMap = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(linksJsonPath));
-                if (jsonMap is not null)
-                {
-                    return jsonMap.ToDictionary(
-                        x => x.Key,
-                        x => Path.Combine(baseDir, x.Value),
-                        StringComparer.OrdinalIgnoreCase);
-                }
-            }
-
-            // Backward compatibility for old packages.
-            string linksPath = Path.Combine(baseDir, "links.txt");
-            var linkMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (File.Exists(linksPath))
-            {
-                foreach (var line in File.ReadAllLines(linksPath))
-                {
-                    var parts = line.Split(',', 2);
-                    if (parts.Length == 2)
-                        linkMap[parts[0].Trim()] = Path.Combine(baseDir, parts[1].Trim());
-                }
-            }
-
-            return linkMap;
-        }
-
-        /// <summary>
-        /// 再帰的に FilePath を書き換える
-        /// </summary>
-        static int ReplaceFilePaths(JsonNode node, Dictionary<string, string> linkMap)
-        {
-            int count = 0;
-            if (node is JsonObject obj)
-            {
-                foreach (var key in obj.ToList())
-                {
-                    if (key.Key == "FilePath" && key.Value is JsonValue val)
-                    {
-                        string? path = val.GetValue<string>();
-                        if (!string.IsNullOrEmpty(path))
-                        {
-                            if (linkMap.TryGetValue(path, out var resolved))
-                            {
-                                obj["FilePath"] = resolved;
-                                count++;
-                            }
-                            else
-                            {
-                                var match = linkMap
-                                    .Where(x => path.Contains(x.Key, StringComparison.OrdinalIgnoreCase))
-                                    .OrderByDescending(x => x.Key.Length)
-                                    .FirstOrDefault();
-                                if (!string.IsNullOrEmpty(match.Key))
-                                {
-                                    obj["FilePath"] = match.Value;
-                                    count++;
-                                }
-                            }
-                        }
-                    }
-                    else if (key.Value != null)
-                        count += ReplaceFilePaths(key.Value, linkMap);
-                }
-            }
-            else if (node is JsonArray arr)
-            {
-                foreach (var child in arr)
-                {
-                    if (child != null)
-                        count += ReplaceFilePaths(child, linkMap);
-                }
-            }
-            return count;
         }
 
         /// <summary>

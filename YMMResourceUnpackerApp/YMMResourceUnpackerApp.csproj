@@ -18,6 +18,11 @@
 		<DebugSymbols>false</DebugSymbols>
 		<DebugType>None</DebugType>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\YmmpxLib\YmmpxLib.csproj" />
+	</ItemGroup>
+
 	<Target Name="CopyDebugToYMM4" AfterTargets="Build"
 			Condition="Exists('$(YMM4_PATH)') and '$(Configuration)' != 'Release'">
 
@@ -36,6 +41,8 @@
 		<ItemGroup>
 			<PluginFiles Include="$(TargetDir)$(AssemblyName).dll" />
 			<PluginFiles Include="$(TargetDir)$(AssemblyName).exe" />
+			<PluginFiles Include="$(TargetDir)YmmpxLib.dll"
+						 Condition="Exists('$(TargetDir)YmmpxLib.dll')" />
 		</ItemGroup>
 
 		<!-- コピー -->
@@ -61,6 +68,7 @@
 		<ItemGroup>
 			<PluginDirFiles Include="$(PluginOutputDir)\*.*" />
 			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.dll" />
+			<KeepPluginFiles Include="$(PluginOutputDir)\YmmpxLib.dll" />
 			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.pdb" />
 			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.deps.json" />
 			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.exe" />

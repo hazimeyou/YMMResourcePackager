@@ -27,6 +27,11 @@
 				   HintPath="..\libs\YukkuriMovieMaker.Controls.dll"
 				   Private="false" ExcludeAssets="runtime" />
 	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\YmmpxLib\YmmpxLib.csproj" />
+	</ItemGroup>
+
 	<Target Name="CopyToYMM4" AfterTargets="Build"
 			Condition="Exists('$(YMM4_PATH)')">
 
@@ -44,6 +49,8 @@
 		<!-- コピー対象（自分のDLLのみ） -->
 		<ItemGroup>
 			<PluginFiles Include="$(TargetDir)$(AssemblyName).dll" />
+			<PluginFiles Include="$(TargetDir)YmmpxLib.dll"
+						 Condition="Exists('$(TargetDir)YmmpxLib.dll')" />
 		</ItemGroup>
 
 		<!-- コピー -->
