@@ -1,4 +1,3 @@
-
 namespace YMMResourcePackagerPlugin.ViewModel
 {
     public class ToolViewModel : BaseViewModel
@@ -28,6 +27,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
 
         public ICommand PackageCommand { get; }
         public ICommand SelectProjectCommand { get; }
+        public ICommand UseOpenedProjectCommand { get; }
         public ICommand AssociateYmmpxCommand { get; }
         public ICommand OpenExcludeSettingCommand { get; }
 
@@ -35,8 +35,131 @@ namespace YMMResourcePackagerPlugin.ViewModel
         {
             PackageCommand = new RelayCommand(async () => await PackageProjectAsync());
             SelectProjectCommand = new RelayCommand(OpenProjectDialog);
+            UseOpenedProjectCommand = new RelayCommand(UseOpenedProject);
             AssociateYmmpxCommand = new RelayCommand(AssociateYmmpx);
             OpenExcludeSettingCommand = new RelayCommand(OpenExcludeSetting);
+        }
+
+        private void UseOpenedProject()
+        {
+            try
+            {
+                if (!TryGetOpenedProjectPath(out var projectPath, out var message))
+                {
+                    Status = message;
+                    MessageBox.Show(message, "情報", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                SelectedProject = projectPath;
+                Status = $"選択: {SelectedProject}";
+                Progress = 0;
+            }
+            catch (Exception ex)
+            {
+                Status = $"エラー: {ex.Message}";
+                MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private static bool TryGetOpenedProjectPath(out string projectPath, out string message)
+        {
+            projectPath = string.Empty;
+            message = string.Empty;
+
+            var candidates = CollectOpenedProjectPathCandidates()
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            projectPath = candidates.FirstOrDefault(File.Exists) ?? string.Empty;
+            if (!string.IsNullOrEmpty(projectPath))
+                return true;
+
+            var rawPath = candidates.FirstOrDefault() ?? string.Empty;
+            if (!string.IsNullOrEmpty(rawPath))
+            {
+                message = $"開いているプロジェクト候補は見つかりましたが、ファイルが存在しません:\n{rawPath}";
+                return false;
+            }
+
+            message = "現在開いているプロジェクトが見つかりません。";
+            return false;
+        }
+
+        private static IEnumerable<string> CollectOpenedProjectPathCandidates()
+        {
+            var settings = PluginLoader.Settings?.Where(x => x is not null).ToArray() ?? [];
+            foreach (var setting in settings)
+            {
+                foreach (var path in GetProjectPathCandidatesFromObject(setting!, 3))
+                    yield return path;
+            }
+        }
+
+        private static IEnumerable<string> GetProjectPathCandidatesFromObject(object? obj, int depth)
+        {
+            if (obj is null || depth < 0)
+                yield break;
+
+            if (obj is string str)
+            {
+                if (LooksLikeYmmpPath(str))
+                    yield return str;
+                yield break;
+            }
+
+            if (obj is System.Collections.IEnumerable enumerable and not string)
+            {
+                foreach (var item in enumerable)
+                    foreach (var path in GetProjectPathCandidatesFromObject(item, depth - 1))
+                        yield return path;
+                yield break;
+            }
+
+            var type = obj.GetType();
+            foreach (var prop in type.GetProperties())
+            {
+                if (prop.GetIndexParameters().Length > 0)
+                    continue;
+
+                object? value;
+                try
+                {
+                    value = prop.GetValue(obj);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (value is null)
+                    continue;
+
+                if (value is string s)
+                {
+                    if (LooksLikeYmmpPath(s) || prop.Name.Equals("ProjectPath", StringComparison.OrdinalIgnoreCase))
+                        yield return s;
+                    continue;
+                }
+
+                if (depth <= 0)
+                    continue;
+
+                if (prop.Name.Contains("Project", StringComparison.OrdinalIgnoreCase) ||
+                    prop.Name.Contains("WindowState", StringComparison.OrdinalIgnoreCase) ||
+                    prop.Name.Contains("State", StringComparison.OrdinalIgnoreCase) ||
+                    prop.Name.Contains("File", StringComparison.OrdinalIgnoreCase))
+                {
+                    foreach (var path in GetProjectPathCandidatesFromObject(value, depth - 1))
+                        yield return path;
+                }
+            }
+        }
+
+        private static bool LooksLikeYmmpPath(string path)
+        {
+            return path.EndsWith(".ymmp", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string GetExcludePath()
@@ -48,9 +171,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
         {
             string excludePath = GetExcludePath();
             if (!File.Exists(excludePath))
-            {
                 return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            }
 
             var saved = JsonSerializer.Deserialize<List<ExcludeItem>>(File.ReadAllText(excludePath)) ?? new();
             return saved
@@ -58,12 +179,12 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 .Select(x => x.FilePath)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
+
         private void OpenExcludeSetting()
         {
             if (string.IsNullOrEmpty(SelectedProject) || !File.Exists(SelectedProject))
             {
-                MessageBox.Show("先にプロジェクトを選択してください。", "警告",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("先にプロジェクトを選択してください。", "警告", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -81,14 +202,14 @@ namespace YMMResourcePackagerPlugin.ViewModel
 
                 if (File.Exists(excludePath))
                 {
-                    var saved = JsonSerializer.Deserialize<List<ExcludeItem>>(
-                        File.ReadAllText(excludePath)) ?? new();
-
+                    var saved = JsonSerializer.Deserialize<List<ExcludeItem>>(File.ReadAllText(excludePath)) ?? new();
                     var map = saved.ToDictionary(x => x.FilePath, x => x.IsExcluded);
 
                     foreach (var item in allFiles)
-                        if (map.TryGetValue(item.FilePath, out bool v))
-                            item.IsExcluded = v;
+                    {
+                        if (map.TryGetValue(item.FilePath, out bool isExcluded))
+                            item.IsExcluded = isExcluded;
+                    }
                 }
 
                 var dlg = new ExcludeSettingWindow(allFiles)
@@ -105,8 +226,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "エラー",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -134,8 +254,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
 
                 if (!File.Exists(appExe))
                 {
-                    MessageBox.Show($"アプリが見つかりません:\n{appExe}", "エラー",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"アプリが見つかりません:\n{appExe}", "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
 
@@ -148,8 +267,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "エラー",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -163,18 +281,17 @@ namespace YMMResourcePackagerPlugin.ViewModel
 
             try
             {
-                Status = "素材収集中...";
+                Status = "素材同梱を開始します...";
                 Progress = 0;
 
                 string baseDir = Path.GetDirectoryName(SelectedProject)!;
                 string projectName = Path.GetFileNameWithoutExtension(SelectedProject);
                 string outputPath = Path.Combine(baseDir, $"{projectName}.ymmpx");
 
-                // 上書き確認
                 if (File.Exists(outputPath))
                 {
                     var r = MessageBox.Show(
-                        "既存ファイルがあります。上書きしますか？",
+                        "同名のファイルが既に存在します。上書きしますか？",
                         "確認",
                         MessageBoxButton.YesNoCancel,
                         MessageBoxImage.Warning);
@@ -186,20 +303,24 @@ namespace YMMResourcePackagerPlugin.ViewModel
                         while (File.Exists(outputPath))
                             outputPath = Path.Combine(baseDir, $"{projectName}_{i++}.ymmpx");
                     }
-                    else File.Delete(outputPath);
+                    else
+                    {
+                        File.Delete(outputPath);
+                    }
                 }
 
-                // 素材取得
                 var excludedFiles = LoadExcludedFiles();
                 List<string> resources = new();
                 using (var doc = JsonDocument.Parse(await File.ReadAllTextAsync(SelectedProject)))
                 {
                     foreach (var p in FindFilePaths(doc.RootElement).Distinct())
+                    {
                         if (File.Exists(p) && !excludedFiles.Contains(p))
                             resources.Add(p);
+                    }
                 }
 
-                Status = $"ZIP作成中... ({resources.Count} 個)";
+                Status = $"ZIP作成中... ({resources.Count} 件)";
                 Progress = 0;
 
                 await Task.Run(() =>
@@ -259,14 +380,13 @@ namespace YMMResourcePackagerPlugin.ViewModel
                     Directory.Delete(tempDir, true);
                 });
 
-                // ★ 完了通知（ここが追加点）
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     Progress = 100;
                     Status = $"完了: {outputPath}";
 
                     MessageBox.Show(
-                        $"パッケージ作成が完了しました。\n\n{outputPath}",
+                        $"パッケージ化が完了しました。\n\n{outputPath}",
                         "完了",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
