@@ -1,4 +1,4 @@
-using YmmpxLib;
+﻿using YmmpxLib;
 
 namespace YMMResourcePackagerPlugin.ViewModel
 {
@@ -64,12 +64,12 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 if (!TryGetOpenedProjectPath(out var projectPath, out var message))
                 {
                     Status = message;
-                    MessageBox.Show(message, "惁E��", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show(message, "情報", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
                 SelectedProject = projectPath;
-                Status = $"選抁E {SelectedProject}";
+                Status = $"選択: {SelectedProject}";
                 Progress = 0;
             }
             catch (Exception ex)
@@ -96,11 +96,11 @@ namespace YMMResourcePackagerPlugin.ViewModel
             var rawPath = candidates.FirstOrDefault() ?? string.Empty;
             if (!string.IsNullOrEmpty(rawPath))
             {
-                message = $"開いてぁE��プロジェクト候補�E見つかりましたが、ファイルが存在しません:\n{rawPath}";
+                message = $"開いているプロジェクト候補は見つかりましたが、ファイルが存在しません:\n{rawPath}";
                 return false;
             }
 
-            message = "�J���Ă���v���W�F�N�g��������܂���B";
+            message = "開いているプロジェクトが見つかりません。";
             return false;
         }
 
@@ -248,7 +248,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
         {
             if (string.IsNullOrEmpty(SelectedProject) || !File.Exists(SelectedProject))
             {
-                MessageBox.Show("��Ƀv���W�F�N�g��I�����Ă��������B", "�x��", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("先にプロジェクトを選択してください。", "警告", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -298,14 +298,14 @@ namespace YMMResourcePackagerPlugin.ViewModel
         {
             var dlg = new OpenFileDialog
             {
-                Filter = "YMMプロジェクチE(*.ymmp)|*.ymmp",
-                Title = "�v���W�F�N�g��I��"
+                Filter = "YMMプロジェクト (*.ymmp)|*.ymmp",
+                Title = "プロジェクトを選択"
             };
 
             if (dlg.ShowDialog() == true)
             {
                 SelectedProject = dlg.FileName;
-                Status = $"選抁E {SelectedProject}";
+                Status = $"選択: {SelectedProject}";
                 Progress = 0;
             }
         }
@@ -339,13 +339,13 @@ namespace YMMResourcePackagerPlugin.ViewModel
         {
             if (string.IsNullOrEmpty(SelectedProject) || !File.Exists(SelectedProject))
             {
-                Status = "�v���W�F�N�g���I������Ă��܂���B";
+                Status = "プロジェクトが選択されていません。";
                 return;
             }
 
             try
             {
-                Status = "素材同梱を開始しまぁE..";
+                Status = "素材同梱を開始します...";
                 Progress = 0;
 
                 string baseDir = Path.GetDirectoryName(SelectedProject)!;
@@ -355,8 +355,8 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 if (File.Exists(outputPath))
                 {
                     var r = MessageBox.Show(
-                        "�o�͐�ɓ����t�@�C��������܂��B�㏑�����܂����H",
-                        "�m�F",
+                        "出力先に同名ファイルがあります。上書きしますか？",
+                        "確認",
                         MessageBoxButton.YesNoCancel,
                         MessageBoxImage.Warning);
 
@@ -377,7 +377,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 var progressReporter = new Progress<YmmpxPackagingProgress>(p =>
                 {
                     Progress = p.Percentage;
-                    Status = $"ZIP作�E中... {p.CompletedCount}/{p.TotalCount}";
+                    Status = $"ZIP作成中... {p.CompletedCount}/{p.TotalCount}";
                 });
 
                 await YmmpxPackageService.CreatePackageAsync(
@@ -393,11 +393,11 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     Progress = 100;
-                    Status = $"完亁E {outputPath}";
+                    Status = $"完了: {outputPath}";
 
                     MessageBox.Show(
-                        $"パッケージ化が完亁E��ました、En\n{outputPath}",
-                        "����",
+                        $"パッケージ化が完了しました。\n\n{outputPath}",
+                        "完了",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
                 });
@@ -421,3 +421,5 @@ namespace YMMResourcePackagerPlugin.ViewModel
         }
     }
 }
+
+

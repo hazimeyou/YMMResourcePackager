@@ -1,4 +1,4 @@
-<UserControl x:Class="YMMResourcePackagerPlugin.View.ToolView"
+﻿<UserControl x:Class="YMMResourcePackagerPlugin.View.ToolView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -12,13 +12,13 @@
             <Button Content="開いているプロジェクトを使用" Command="{Binding UseOpenedProjectCommand}"/>
         </StackPanel>
         <TextBox Text="{Binding SelectedProject}" IsReadOnly="True" Margin="0,0,0,10"/>
-        <CheckBox Content="Include project UI settings (LayoutXml / ToolStates)"
+        <CheckBox Content="プロジェクトUI設定を含める (LayoutXml / ToolStates)"
                   IsChecked="{Binding IncludeProjectUiSettings}"
                   Margin="0,0,0,8"/>
         <Button Content="パッケージ化" Command="{Binding PackageCommand}" Margin="0,0,0,5"/>
         <Button Content="除外設定" Command="{Binding OpenExcludeSettingCommand}" Margin="0,0,0,5"/>
         <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Height="20" Margin="0,5,0,0"/>
-        <Button Content=".ymmpx を関連付け" Command="{Binding AssociateYmmpxCommand}" Margin="0,0,0,5"/>
+        <Button Content=".ymmpx の関連付け" Command="{Binding AssociateYmmpxCommand}" Margin="0,0,0,5"/>
         <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Margin="0,10,0,0"/>
     </StackPanel>
 </UserControl>

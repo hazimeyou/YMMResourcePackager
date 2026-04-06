@@ -11,7 +11,6 @@
 		<SelfContained>true</SelfContained>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-		<YMM4_PATH>C:\Users\yu-za-hazimeyou\Desktop\YukkuriMovieMaker_v4_Lite</YMM4_PATH>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">
@@ -26,26 +25,21 @@
 	<Target Name="CopyDebugToYMM4" AfterTargets="Build"
 			Condition="Exists('$(YMM4_PATH)') and '$(Configuration)' != 'Release'">
 
-		<!-- コピー先フォルダ -->
 		<PropertyGroup>
 			<PluginOutputDir>
 				$(YMM4_PATH)\user\plugin\YMMResourcePackager
 			</PluginOutputDir>
 		</PropertyGroup>
 
-		<!-- フォルダ作成 -->
 		<MakeDir Directories="$(PluginOutputDir)"
 				 Condition="!Exists('$(PluginOutputDir)')" />
 
-		<!-- Debug は通常ビルド成果物をコピー -->
 		<ItemGroup>
-			<PluginFiles Include="$(TargetDir)$(AssemblyName).dll" />
 			<PluginFiles Include="$(TargetDir)$(AssemblyName).exe" />
-			<PluginFiles Include="$(TargetDir)YmmpxLib.dll"
-						 Condition="Exists('$(TargetDir)YmmpxLib.dll')" />
+			<PluginFiles Include="$(TargetDir)YMMResourcePackager.YmmpxLib.dll"
+						 Condition="Exists('$(TargetDir)YMMResourcePackager.YmmpxLib.dll')" />
 		</ItemGroup>
 
-		<!-- コピー -->
 		<Copy SourceFiles="@(PluginFiles)"
 			  DestinationFolder="$(PluginOutputDir)" />
 	</Target>
@@ -53,22 +47,19 @@
 	<Target Name="CopyReleasePublishToYMM4" AfterTargets="Publish"
 			Condition="Exists('$(YMM4_PATH)') and '$(Configuration)' == 'Release'">
 
-		<!-- コピー先フォルダ -->
 		<PropertyGroup>
 			<PluginOutputDir>
 				$(YMM4_PATH)\user\plugin\YMMResourcePackager
 			</PluginOutputDir>
 		</PropertyGroup>
 
-		<!-- フォルダ作成 -->
 		<MakeDir Directories="$(PluginOutputDir)"
 				 Condition="!Exists('$(PluginOutputDir)')" />
 
-		<!-- 以前の Unpacker 配布残骸を削除して単一EXE構成にする -->
 		<ItemGroup>
 			<PluginDirFiles Include="$(PluginOutputDir)\*.*" />
 			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.dll" />
-			<KeepPluginFiles Include="$(PluginOutputDir)\YmmpxLib.dll" />
+			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.YmmpxLib.dll" />
 			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.pdb" />
 			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.deps.json" />
 			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.exe" />
@@ -77,17 +68,14 @@
 		</ItemGroup>
 		<Delete Files="@(StalePluginFiles)" ContinueOnError="true" />
 
-		<!-- Release は publish 成果物（単一EXE, ランタイム同梱）をコピー -->
 		<ItemGroup>
 			<PluginFiles Include="$(PublishDir)$(AssemblyName).exe" />
 		</ItemGroup>
 
-		<!-- コピー -->
 		<Copy SourceFiles="@(PluginFiles)"
 			  DestinationFolder="$(PluginOutputDir)" />
 	</Target>
 
-	<!-- Release の通常 Build 時も Publish 出力を作って YMM へコピーする -->
 	<Target Name="PublishReleaseForYMMOnBuild"
 			AfterTargets="Build"
 			Condition="Exists('$(YMM4_PATH)') and '$(Configuration)' == 'Release' and '$(_ReleaseBuildPublishDone)' != 'true'">
