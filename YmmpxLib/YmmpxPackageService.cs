@@ -11,6 +11,7 @@ public static class YmmpxPackageService
         string projectFilePath,
         string outputPath,
         ISet<string>? excludedFiles = null,
+        YmmpxPackagingOptions? options = null,
         IProgress<YmmpxPackagingProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -25,6 +26,22 @@ public static class YmmpxPackageService
             : new HashSet<string>(excludedFiles, StringComparer.OrdinalIgnoreCase);
 
         var projectText = await File.ReadAllTextAsync(projectFilePath, cancellationToken).ConfigureAwait(false);
+        options ??= new YmmpxPackagingOptions();
+
+        var projectTextForPackage = projectText;
+        if (!options.IncludeProjectUiSettings)
+        {
+            var projectNode = JsonNode.Parse(projectTextForPackage);
+            if (projectNode is not null)
+            {
+                YmmpxProjectJson.RemoveUiSettings(projectNode);
+                projectTextForPackage = projectNode.ToJsonString(new JsonSerializerOptions
+                {
+                    WriteIndented = false,
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
+            }
+        }
 
         using var document = JsonDocument.Parse(projectText);
         var resources = YmmpxProjectJson
@@ -78,9 +95,28 @@ public static class YmmpxPackageService
                 JsonSerializer.Serialize(fileMap, new JsonSerializerOptions { WriteIndented = true }),
                 cancellationToken).ConfigureAwait(false);
 
+            var projectEntryName = Path.GetFileName(projectFilePath);
+            if (string.IsNullOrWhiteSpace(projectEntryName))
+                projectEntryName = "project.ymmp";
+            if (!projectEntryName.EndsWith(".ymmp", StringComparison.OrdinalIgnoreCase))
+                projectEntryName = Path.ChangeExtension(projectEntryName, ".ymmp");
+
             using (var zip = ZipFile.Open(outputPath, ZipArchiveMode.Create))
             {
-                zip.CreateEntryFromFile(projectFilePath, "project.ymmp");
+                var projectEntry = zip.CreateEntry(projectEntryName);
+                await using (var projectStream = projectEntry.Open())
+                await using (var projectWriter = new StreamWriter(projectStream))
+                {
+                    await projectWriter.WriteAsync(projectTextForPackage).ConfigureAwait(false);
+                }
+
+                var markerEntry = zip.CreateEntry("_ymmpx_project_path.txt");
+                await using (var markerStream = markerEntry.Open())
+                await using (var markerWriter = new StreamWriter(markerStream))
+                {
+                    await markerWriter.WriteAsync(projectEntryName).ConfigureAwait(false);
+                }
+
                 zip.CreateEntryFromFile(linksFile, "links.txt");
                 zip.CreateEntryFromFile(linksJsonFile, "links.json");
 
@@ -108,9 +144,32 @@ public static class YmmpxPackageService
         ZipFile.ExtractToDirectory(ymmpxPath, extractDirectory);
 
         var linkMap = LoadLinkMap(extractDirectory);
-        var projectPath = Directory
-            .GetFiles(extractDirectory, "*.ymmp", SearchOption.AllDirectories)
-            .FirstOrDefault();
+        var markerPath = Path.Combine(extractDirectory, "_ymmpx_project_path.txt");
+        var projectPath = string.Empty;
+        if (File.Exists(markerPath))
+        {
+            var relativeProjectPath = File.ReadAllText(markerPath).Trim();
+            if (!string.IsNullOrWhiteSpace(relativeProjectPath))
+            {
+                var candidate = ResolvePath(extractDirectory, relativeProjectPath);
+                if (File.Exists(candidate))
+                    projectPath = candidate;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(projectPath))
+        {
+            var legacyProject = Path.Combine(extractDirectory, "project.ymmp");
+            if (File.Exists(legacyProject))
+                projectPath = legacyProject;
+        }
+
+        if (string.IsNullOrWhiteSpace(projectPath))
+        {
+            projectPath = Directory
+                .GetFiles(extractDirectory, "*.ymmp", SearchOption.AllDirectories)
+                .FirstOrDefault() ?? string.Empty;
+        }
 
         if (string.IsNullOrWhiteSpace(projectPath))
             throw new InvalidDataException("Project file (.ymmp) was not found in the package.");

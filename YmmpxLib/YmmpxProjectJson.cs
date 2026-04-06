@@ -5,6 +5,16 @@ namespace YmmpxLib;
 
 public static class YmmpxProjectJson
 {
+    public static bool RemoveUiSettings(JsonNode node)
+    {
+        if (node is not JsonObject root)
+            return false;
+
+        var removedLayoutXml = root.Remove("LayoutXml");
+        var removedToolStates = root.Remove("ToolStates");
+        return removedLayoutXml || removedToolStates;
+    }
+
     public static IEnumerable<string> FindFilePaths(JsonElement element)
     {
         if (element.ValueKind == JsonValueKind.Object)
