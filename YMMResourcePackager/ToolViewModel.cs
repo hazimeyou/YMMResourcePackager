@@ -4,6 +4,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
 {
     public class ToolViewModel : BaseViewModel
     {
+        private const string OptionsFileName = "packaging_options.json";
         private string? _selectedProject;
         public static string PluginDirectory => AppDirectories.PluginDirectory;
 
@@ -27,6 +28,19 @@ namespace YMMResourcePackagerPlugin.ViewModel
             set => SetProperty(ref _progress, value);
         }
 
+        private bool _includeProjectUiSettings = true;
+        public bool IncludeProjectUiSettings
+        {
+            get => _includeProjectUiSettings;
+            set
+            {
+                if (!SetProperty(ref _includeProjectUiSettings, value))
+                    return;
+
+                SavePackagingOptions();
+            }
+        }
+
         public ICommand PackageCommand { get; }
         public ICommand SelectProjectCommand { get; }
         public ICommand UseOpenedProjectCommand { get; }
@@ -35,6 +49,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
 
         public ToolViewModel()
         {
+            LoadPackagingOptions();
             PackageCommand = new RelayCommand(async () => await PackageProjectAsync());
             SelectProjectCommand = new RelayCommand(OpenProjectDialog);
             UseOpenedProjectCommand = new RelayCommand(UseOpenedProject);
@@ -167,6 +182,53 @@ namespace YMMResourcePackagerPlugin.ViewModel
         private static string GetExcludePath()
         {
             return Path.Combine(PluginDirectory, "YMMResourcePackager", "exclude.json");
+        }
+
+        private static string GetPackagingOptionsPath()
+        {
+            return Path.Combine(PluginDirectory, "YMMResourcePackager", OptionsFileName);
+        }
+
+        private void LoadPackagingOptions()
+        {
+            try
+            {
+                var optionsPath = GetPackagingOptionsPath();
+                if (!File.Exists(optionsPath))
+                    return;
+
+                var saved = JsonSerializer.Deserialize<PackagingOptionsState>(File.ReadAllText(optionsPath));
+                if (saved is not null)
+                    _includeProjectUiSettings = saved.IncludeProjectUiSettings;
+            }
+            catch
+            {
+                _includeProjectUiSettings = true;
+            }
+        }
+
+        private void SavePackagingOptions()
+        {
+            try
+            {
+                var optionsPath = GetPackagingOptionsPath();
+                var directory = Path.GetDirectoryName(optionsPath);
+                if (!string.IsNullOrWhiteSpace(directory))
+                    Directory.CreateDirectory(directory);
+
+                var state = new PackagingOptionsState
+                {
+                    IncludeProjectUiSettings = IncludeProjectUiSettings
+                };
+
+                File.WriteAllText(
+                    optionsPath,
+                    JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch
+            {
+                // Ignore persistence failures and keep current in-memory setting.
+            }
         }
 
         private static HashSet<string> LoadExcludedFiles()
@@ -322,6 +384,10 @@ namespace YMMResourcePackagerPlugin.ViewModel
                     SelectedProject,
                     outputPath,
                     excludedFiles,
+                    new YmmpxPackagingOptions
+                    {
+                        IncludeProjectUiSettings = IncludeProjectUiSettings
+                    },
                     progressReporter);
 
                 Application.Current.Dispatcher.Invoke(() =>
@@ -347,6 +413,11 @@ namespace YMMResourcePackagerPlugin.ViewModel
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
             }
+        }
+
+        private sealed class PackagingOptionsState
+        {
+            public bool IncludeProjectUiSettings { get; set; } = true;
         }
     }
 }
