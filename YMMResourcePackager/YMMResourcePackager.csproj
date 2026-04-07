@@ -6,7 +6,7 @@
 		<UseWPF>true</UseWPF>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Version Condition="'$(Version)'==''">0.0.0</Version>
-		<YMM4_PATH>C:\Users\yu-za-hazimeyou\Desktop\YukkuriMovieMaker_v4_Lite</YMM4_PATH>
+		<YMM4_PATH>C:\Users\hazimeyou\Desktop\YukkuriMovieMaker_v4_Lite</YMM4_PATH>
 	</PropertyGroup>
 
 

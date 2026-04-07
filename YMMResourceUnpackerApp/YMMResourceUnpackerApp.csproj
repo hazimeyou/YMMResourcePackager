@@ -11,7 +11,7 @@
 		<SelfContained>true</SelfContained>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-		<YMM4_PATH>C:\Users\yu-za-hazimeyou\Desktop\YukkuriMovieMaker_v4_Lite</YMM4_PATH>
+		<YMM4_PATH>C:\Users\hazimeyou\Desktop\YukkuriMovieMaker_v4_Lite</YMM4_PATH>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">
