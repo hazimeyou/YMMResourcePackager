@@ -1,4 +1,4 @@
-name: Build and Release
+﻿name: Build and Release
 
 on:
   push:
@@ -23,21 +23,43 @@ jobs:
       - name: Set Version
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
+          $version = "${{ github.ref_name }}".TrimStart('v')
           echo "VERSION=$version" >> $env:GITHUB_ENV
 
       - name: Build
-        run: dotnet build -c Release -p:VersionPrefix=$VERSION
+        run: dotnet build .\YMMResourceUnpackerApp.sln -c Release -p:Version=$env:VERSION
 
       - name: Publish
-        run: dotnet publish -c Release -p:VersionPrefix=$VERSION -o publish
-
+        run: dotnet publish .\YMMResourceUnpackerApp\YMMResourceUnpackerApp.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o publish
 
       - name: Copy LICENSE
         run: Copy-Item "LICENSE" "publish\LICENSE"
 
       - name: Copy README
-        run: Copy-Item ".github\assets\readme.txt" "publish\readme.txt"
+        run: Copy-Item ".github\assets\README.txt" "publish\readme.txt"
+
+      - name: Collect Plugin Files
+        shell: pwsh
+        run: |
+          $pluginBin = "YMMResourcePackager\bin\Release\net10.0-windows"
+          $requiredFiles = @(
+            "YMMResourcePackager.dll",
+            "YMMResourcePackager.deps.json",
+            "YMMResourcePackager.YmmpxLib.dll"
+          )
+
+          foreach ($file in $requiredFiles) {
+            $src = Join-Path $pluginBin $file
+            if (!(Test-Path $src)) {
+              throw "Required file not found: $src"
+            }
+            Copy-Item $src "publish\$file" -Force
+          }
+
+          $pdb = Join-Path $pluginBin "YMMResourcePackager.pdb"
+          if (Test-Path $pdb) {
+            Copy-Item $pdb "publish\YMMResourcePackager.pdb" -Force
+          }
 
       - name: Prepare Package Folder
         run: |

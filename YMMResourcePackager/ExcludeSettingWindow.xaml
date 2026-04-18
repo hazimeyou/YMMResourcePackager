@@ -1,4 +1,4 @@
-<Window x:Class="YMMResourcePackager.ExcludeSettingWindow"
+﻿<Window x:Class="YMMResourcePackager.ExcludeSettingWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="除外設定"
@@ -8,7 +8,6 @@
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="10" Background="White">
-        <!-- 上部のボタン群 -->
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
             <Button Name="BtnSelectAll" Content="すべて選択" Click="BtnSelectAll_Click"
                     Margin="0,0,5,0" Background="#f2f2f2" Foreground="Black"/>
@@ -20,7 +19,6 @@
                     Width="75" Background="#f2f2f2" Foreground="Black"/>
         </StackPanel>
 
-        <!-- ファイル除外リスト -->
         <ListView Name="ExcludeListView"
                   Background="White"
                   Foreground="Black"
