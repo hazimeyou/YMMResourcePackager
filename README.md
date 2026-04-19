@@ -3,14 +3,6 @@
 YMM4素材同梱プラグインは、YukkuriMovieMaker4 のプロジェクト素材をまとめて管理・共有するためのプラグインです。  
 特定のファイルを除外したり、素材をパッケージ化して他のユーザーと同じ環境で編集を再開できます。
 
----
-
-## YmmpxLibについて
-
-- API ドキュメント: [YmmpxLib README](./YmmpxLib/README.md)
-
----
-
 ## 概要
 
 - YukkuriMovieMaker プロジェクト内の素材を簡単にまとめたり展開可能 
