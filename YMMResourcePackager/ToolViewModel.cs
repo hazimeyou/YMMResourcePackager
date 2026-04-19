@@ -267,7 +267,10 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 if (File.Exists(excludePath))
                 {
                     var saved = JsonSerializer.Deserialize<List<ExcludeItem>>(File.ReadAllText(excludePath)) ?? new();
-                    var map = saved.ToDictionary(x => x.FilePath, x => x.IsExcluded);
+                    var map = saved
+                        .Where(x => !string.IsNullOrWhiteSpace(x.FilePath))
+                        .GroupBy(x => x.FilePath, StringComparer.OrdinalIgnoreCase)
+                        .ToDictionary(g => g.Key, g => g.Last().IsExcluded, StringComparer.OrdinalIgnoreCase);
 
                     foreach (var item in allFiles)
                     {

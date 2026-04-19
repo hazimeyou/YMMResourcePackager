@@ -42,7 +42,9 @@
 		</ItemGroup>
 
 		<Copy SourceFiles="@(PluginFiles)"
-			  DestinationFolder="$(PluginOutputDir)" />
+			  DestinationFolder="$(PluginOutputDir)"
+			  SkipUnchangedFiles="true"
+			  ContinueOnError="WarnAndContinue" />
 	</Target>
 
 	<Target Name="CopyReleasePublishToYMM4" AfterTargets="Publish"
@@ -74,7 +76,9 @@
 		</ItemGroup>
 
 		<Copy SourceFiles="@(PluginFiles)"
-			  DestinationFolder="$(PluginOutputDir)" />
+			  DestinationFolder="$(PluginOutputDir)"
+			  SkipUnchangedFiles="true"
+			  ContinueOnError="WarnAndContinue" />
 	</Target>
 
 	<Target Name="PublishReleaseForYMMOnBuild"

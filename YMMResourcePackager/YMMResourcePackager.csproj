@@ -52,7 +52,9 @@
 		</ItemGroup>
 
 		<Copy SourceFiles="@(PluginFiles)"
-			  DestinationFolder="$(PluginOutputDir)" />
+			  DestinationFolder="$(PluginOutputDir)"
+			  SkipUnchangedFiles="true"
+			  ContinueOnError="WarnAndContinue" />
 	</Target>
 
 
