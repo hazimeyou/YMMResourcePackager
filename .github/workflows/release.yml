@@ -44,8 +44,7 @@ jobs:
           $pluginBin = "YMMResourcePackager\bin\Release\net10.0-windows"
           $requiredFiles = @(
             "YMMResourcePackager.dll",
-            "YMMResourcePackager.deps.json",
-            "YMMResourcePackager.YmmpxLib.dll"
+            "YMMResourcePackager.deps.json"
           )
 
           foreach ($file in $requiredFiles) {
@@ -55,6 +54,20 @@ jobs:
             }
             Copy-Item $src "publish\$file" -Force
           }
+
+          $ymmpxLibCandidates = @(
+            "YMMResourcePackager.YmmpxLib.dll",
+            "YMMPXLib.dll"
+          )
+          $ymmpxLib = $ymmpxLibCandidates |
+            ForEach-Object { Join-Path $pluginBin $_ } |
+            Where-Object { Test-Path $_ } |
+            Select-Object -First 1
+
+          if (-not $ymmpxLib) {
+            throw "Required YMMPX library was not found in $pluginBin"
+          }
+          Copy-Item $ymmpxLib (Join-Path "publish" (Split-Path $ymmpxLib -Leaf)) -Force
 
           $pdb = Join-Path $pluginBin "YMMResourcePackager.pdb"
           if (Test-Path $pdb) {

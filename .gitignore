@@ -363,3 +363,7 @@ MigrationBackup/
 FodyWeavers.xsd
 /.dotnet/.dotnet
 /.dotnet_home/.dotnet
+/package
+*.ymme
+/publish_check2
+/publish_check
