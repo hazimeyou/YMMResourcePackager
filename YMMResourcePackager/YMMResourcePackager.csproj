@@ -28,7 +28,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\YmmpxLib\YmmpxLib.csproj" />
+		<ProjectReference Include="..\YmmpxLib\YMMPXLib\YMMPXLib.csproj" />
 	</ItemGroup>
 
 	<Target Name="CopyToYMM4" AfterTargets="Build"
