@@ -383,7 +383,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
                     Status = $"ZIP作成中... {p.CompletedCount}/{p.TotalCount}";
                 });
 
-                await YmmpxPackageService.CreatePackageAsync(
+                var packageResult = await YmmpxPackageService.CreatePackageAsync(
                     SelectedProject,
                     outputPath,
                     excludedFiles,
@@ -396,10 +396,10 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     Progress = 100;
-                    Status = $"完了: {outputPath}";
+                    Status = $"完了: {outputPath} (素材 {packageResult.ResourceCount} 件)";
 
                     MessageBox.Show(
-                        $"パッケージ化が完了しました。\n\n{outputPath}",
+                        $"パッケージ化が完了しました。\n素材同梱数: {packageResult.ResourceCount} 件\n\n{outputPath}",
                         "完了",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
