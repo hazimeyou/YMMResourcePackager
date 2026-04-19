@@ -36,9 +36,8 @@
 				 Condition="!Exists('$(PluginOutputDir)')" />
 
 		<ItemGroup>
-			<PluginFiles Include="$(TargetDir)$(AssemblyName).exe" />
-			<PluginFiles Include="$(TargetDir)YMMResourcePackager.YmmpxLib.dll"
-						 Condition="Exists('$(TargetDir)YMMResourcePackager.YmmpxLib.dll')" />
+			<!-- Debug build is not single-file publish; copy all runtime files required by apphost -->
+			<PluginFiles Include="$(TargetDir)*.*" Exclude="$(TargetDir)*.pdb" />
 		</ItemGroup>
 
 		<Copy SourceFiles="@(PluginFiles)"
