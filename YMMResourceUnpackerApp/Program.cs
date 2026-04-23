@@ -1,4 +1,4 @@
-﻿global using System.Diagnostics;
+global using System.Diagnostics;
 global using Microsoft.Win32;
 global using System.Runtime.InteropServices;
 global using System.Runtime.Versioning;
@@ -8,9 +8,10 @@ namespace YMMResourceUnpackerApp
 {
     class Program
     {
+        private const string ThirdPartyNoticesFileName = "THIRD-PARTY-NOTICES.txt";
+
         static void Main(string[] args)
         {
-            // ユーザー単位での関連付け
             if (args.Length > 0 && args[0] == "--associate")
             {
                 if (!OperatingSystem.IsWindows())
@@ -23,11 +24,15 @@ namespace YMMResourceUnpackerApp
                 return;
             }
 
+            if (args.Length > 0 && IsLicenseArgument(args[0]))
+            {
+                PrintThirdPartyNotices();
+                return;
+            }
+
             Console.WriteLine("=== YMM Resource Unpacker ===");
 
             string ymmpxPath;
-
-            // 引数対応
             if (args.Length > 0 && File.Exists(args[0]))
             {
                 ymmpxPath = args[0];
@@ -35,37 +40,38 @@ namespace YMMResourceUnpackerApp
             else
             {
                 Console.WriteLine("ymmpx ファイルを指定してください:");
-                string? input = Console.ReadLine();
+                var input = Console.ReadLine();
                 if (string.IsNullOrEmpty(input) || !File.Exists(input))
                 {
                     Console.WriteLine("ファイルが存在しません。終了します。");
                     return;
                 }
+
                 ymmpxPath = input;
             }
 
-            // 自作アプリの実行フォルダ
-            string appDir = AppDomain.CurrentDomain.BaseDirectory;
+            var appDir = AppDomain.CurrentDomain.BaseDirectory;
 
-            // "user\plugin\YMMResourcePackager" を削除して YMM.exe の親フォルダを取得
-            string suffixToRemove = @"user\plugin\YMMResourcePackager\";
-            string ymmRootDir = appDir;
+            var suffixToRemove = @"user\plugin\YMMResourcePackager\";
+            var ymmRootDir = appDir;
             if (ymmRootDir.EndsWith(suffixToRemove, StringComparison.OrdinalIgnoreCase))
             {
                 ymmRootDir = ymmRootDir.Substring(0, ymmRootDir.Length - suffixToRemove.Length);
             }
 
-            string ymmExe = Path.Combine(ymmRootDir, "YukkuriMovieMaker.exe");
-            ymmExe = Path.GetFullPath(ymmExe);
+            var ymmExe = Path.GetFullPath(Path.Combine(ymmRootDir, "YukkuriMovieMaker.exe"));
             if (!File.Exists(ymmExe))
             {
-                Console.WriteLine("YukkuriMovieMaker.exe が見つかりません。終了します。1");
+                Console.WriteLine("YukkuriMovieMaker.exe が見つかりません。終了します。");
                 return;
             }
 
-            string baseName = Path.GetFileNameWithoutExtension(ymmpxPath);
-            string desiredDir = Path.Combine(appDir, baseName);
-            string finalDir = YmmpxPackageService.GetAvailableDirectoryPath(desiredDir);
+            var baseName = Path.GetFileNameWithoutExtension(ymmpxPath);
+            if (string.IsNullOrWhiteSpace(baseName))
+                baseName = "unpacked_ymmpx";
+
+            var desiredDir = Path.Combine(appDir, baseName);
+            var finalDir = YmmpxPackageService.GetAvailableDirectoryPath(desiredDir);
 
             try
             {
@@ -74,7 +80,6 @@ namespace YMMResourceUnpackerApp
                 var ymmpPath = unpackResult.ProjectFilePath;
                 Console.WriteLine($"リンク復元完了: {unpackResult.ReplacedPathCount} 件");
 
-                // YMM 起動
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = ymmExe,
@@ -88,17 +93,35 @@ namespace YMMResourceUnpackerApp
             }
         }
 
-        /// <summary>
-        /// .ymmpx を自作アプリに関連付け
-        /// </summary>
+        private static bool IsLicenseArgument(string argument)
+        {
+            return string.Equals(argument, "--licenses", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(argument, "--license", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void PrintThirdPartyNotices()
+        {
+            var noticesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ThirdPartyNoticesFileName);
+            if (!File.Exists(noticesPath))
+            {
+                Console.WriteLine("Third-party notices file was not found.");
+                Console.WriteLine("YMMPXLib (MIT)");
+                Console.WriteLine("SharpCompress 0.38.0 (MIT)");
+                Console.WriteLine("ZstdSharp.Port 0.8.1 (MIT)");
+                return;
+            }
+
+            Console.WriteLine(File.ReadAllText(noticesPath));
+        }
+
         [SupportedOSPlatform("windows")]
         static void EnsureFileAssociation()
         {
             try
             {
-                string ext = ".ymmpx";
-                string progId = "YMMResourcePackagerFile";
-                string appPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "YMMResourceUnpackerApp.exe");
+                var ext = ".ymmpx";
+                var progId = "YMMResourcePackagerFile";
+                var appPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "YMMResourceUnpackerApp.exe");
 
                 using (var key = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{ext}"))
                 {
@@ -138,7 +161,5 @@ namespace YMMResourceUnpackerApp
 
         [DllImport("shell32.dll")]
         private static extern void SHChangeNotify(int wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);
-
     }
 }
-
