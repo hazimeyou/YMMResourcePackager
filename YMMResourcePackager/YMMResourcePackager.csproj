@@ -31,6 +31,12 @@
 		<ProjectReference Include="..\YmmpxLib\YMMPXLib\YMMPXLib.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<Content Include="THIRD-PARTY-NOTICES.txt">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
 	<Target Name="CopyToYMM4" AfterTargets="Build"
 			Condition="Exists('$(YMM4_PATH)')">
 
@@ -49,6 +55,8 @@
 						 Condition="Exists('$(TargetDir)YMMResourcePackager.YmmpxLib.dll')" />
 			<PluginFiles Include="$(TargetDir)$(AssemblyName).deps.json"
 						 Condition="Exists('$(TargetDir)$(AssemblyName).deps.json')" />
+			<PluginFiles Include="$(TargetDir)THIRD-PARTY-NOTICES.txt"
+						 Condition="Exists('$(TargetDir)THIRD-PARTY-NOTICES.txt')" />
 		</ItemGroup>
 
 		<Copy SourceFiles="@(PluginFiles)"
