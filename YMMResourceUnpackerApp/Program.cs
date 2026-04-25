@@ -3,6 +3,7 @@ global using Microsoft.Win32;
 global using System.Runtime.InteropServices;
 global using System.Runtime.Versioning;
 global using YmmpxLib;
+using System.Runtime;
 
 namespace YMMResourceUnpackerApp
 {
@@ -57,15 +58,34 @@ namespace YMMResourceUnpackerApp
 
             string ymmExe = Path.Combine(ymmRootDir, "YukkuriMovieMaker.exe");
             ymmExe = Path.GetFullPath(ymmExe);
-            if (!File.Exists(ymmExe))
-            {
-                Console.WriteLine("YukkuriMovieMaker.exe が見つかりません。終了します。1");
-                return;
-            }
-
             string baseName = Path.GetFileNameWithoutExtension(ymmpxPath);
             string desiredDir = Path.Combine(appDir, baseName);
             string finalDir = YmmpxPackageService.GetAvailableDirectoryPath(desiredDir);
+
+            if (!File.Exists(ymmExe))
+            {
+                Console.WriteLine("YukkuriMovieMaker.exe が見つかりません。");
+                try
+                {
+                    Console.WriteLine("展開中...");
+                    var unpackResult = YmmpxPackageService.ExtractAndRestoreProject(ymmpxPath, finalDir);
+                    var ymmpPath = unpackResult.ProjectFilePath;
+                    Console.WriteLine($"リンク復元完了: {unpackResult.ReplacedPathCount} 件");
+
+                    // .ymmp の既定アプリで開く（ダブルクリックと同じ挙動）
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = ymmpPath,
+                        UseShellExecute = true,
+                        Verb = "open"
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"エラー: {ex.Message}");
+                }
+                return;
+            }
 
             try
             {

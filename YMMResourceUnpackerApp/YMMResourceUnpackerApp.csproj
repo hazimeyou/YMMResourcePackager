@@ -63,6 +63,7 @@
 			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.pdb" />
 			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.deps.json" />
 			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.exe" />
+			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.dll" />
 			<StalePluginFiles Include="@(PluginDirFiles)"
 							  Exclude="@(KeepPluginFiles)" />
 		</ItemGroup>
