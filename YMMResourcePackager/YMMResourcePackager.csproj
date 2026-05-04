@@ -33,14 +33,14 @@
   <Target Name="BuildFeatures" BeforeTargets="Build">
     <MSBuild
       Projects="..\YMMResourcePackager.Features\YMMResourcePackager.Features.csproj"
-      Targets="Build"
+      Targets="Restore;Build"
       Properties="Configuration=$(Configuration);Version=$(Version)" />
   </Target>
 
   <Target Name="BuildUnpacker" BeforeTargets="Build">
     <MSBuild
       Projects="..\YMMResourceUnpackerApp\YMMResourceUnpackerApp.csproj"
-      Targets="Build"
+      Targets="Restore;Build"
       Properties="Configuration=$(Configuration);Version=$(Version)" />
   </Target>
 
