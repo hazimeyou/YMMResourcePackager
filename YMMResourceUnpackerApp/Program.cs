@@ -1,18 +1,24 @@
-﻿global using System.Diagnostics;
+global using System.Diagnostics;
 global using Microsoft.Win32;
 global using System.Runtime.InteropServices;
 global using System.Runtime.Versioning;
 using System.Reflection;
+using YMMResourcePackager.Shared;
 
 namespace YMMResourceUnpackerApp
 {
     class Program
     {
-        private const string ThirdPartyNoticesFileName = "THIRD-PARTY-NOTICES.txt";
-
         static void Main(string[] args)
         {
-            if (args.Length > 0 && args[0] == "--associate")
+            var remainingArgs = HandleLoggingSwitches(args);
+            if (remainingArgs.Length == 0 && args.Length > 0)
+                return;
+
+            AppLogger.LogInfo("Unpacker app started.");
+            AppLogger.LogInfo($"Arguments: {string.Join(" ", remainingArgs.Select(SanitizeArg))}");
+
+            if (remainingArgs.Length > 0 && remainingArgs[0] == "--associate")
             {
                 if (!OperatingSystem.IsWindows())
                 {
@@ -24,18 +30,12 @@ namespace YMMResourceUnpackerApp
                 return;
             }
 
-            if (args.Length > 0 && IsLicenseArgument(args[0]))
-            {
-                PrintThirdPartyNotices();
-                return;
-            }
-
             Console.WriteLine("=== YMM Resource Unpacker ===");
 
             string ymmpxPath;
-            if (args.Length > 0 && File.Exists(args[0]))
+            if (remainingArgs.Length > 0 && File.Exists(remainingArgs[0]))
             {
-                ymmpxPath = args[0];
+                ymmpxPath = remainingArgs[0];
             }
             else
             {
@@ -44,6 +44,7 @@ namespace YMMResourceUnpackerApp
                 if (string.IsNullOrEmpty(input) || !File.Exists(input))
                 {
                     Console.WriteLine("ファイルが存在しません。終了します。");
+                    AppLogger.LogWarning("Input ymmpx path is missing or invalid.");
                     return;
                 }
 
@@ -53,6 +54,7 @@ namespace YMMResourceUnpackerApp
             if (!TryCreateFeatureService(out var service, out var serviceError))
             {
                 Console.WriteLine(serviceError);
+                AppLogger.LogError($"Feature service creation failed: {serviceError}");
                 return;
             }
 
@@ -68,6 +70,7 @@ namespace YMMResourceUnpackerApp
             if (!File.Exists(ymmExe))
             {
                 Console.WriteLine("YukkuriMovieMaker.exe が見つかりません。終了します。");
+                AppLogger.LogError("YukkuriMovieMaker.exe was not found.");
                 return;
             }
 
@@ -81,9 +84,11 @@ namespace YMMResourceUnpackerApp
             try
             {
                 Console.WriteLine("展開中...");
+                AppLogger.LogInfo("Unpack started.");
                 var unpackResult = service.ExtractAndRestoreProject(ymmpxPath, finalDir);
                 var ymmpPath = unpackResult.ProjectFilePath;
                 Console.WriteLine($"リンク復元完了: {unpackResult.ReplacedPathCount} 件");
+                AppLogger.LogInfo($"Unpack succeeded. ReplacedPathCount={unpackResult.ReplacedPathCount}");
 
                 Process.Start(new ProcessStartInfo
                 {
@@ -95,7 +100,34 @@ namespace YMMResourceUnpackerApp
             catch (Exception ex)
             {
                 Console.WriteLine($"エラー: {ex.Message}");
+                AppLogger.LogException(ex, "Unpack failed.");
             }
+        }
+
+        private static string[] HandleLoggingSwitches(string[] args)
+        {
+            var remaining = args
+                .Where(a => !string.Equals(a, "--enable-logging", StringComparison.OrdinalIgnoreCase))
+                .Where(a => !string.Equals(a, "--disable-logging", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            if (args.Any(a => string.Equals(a, "--enable-logging", StringComparison.OrdinalIgnoreCase)))
+            {
+                var settings = AppSettingsStore.Load();
+                settings.EnableLogging = true;
+                AppSettingsStore.Save(settings);
+                Console.WriteLine("Logging enabled.");
+            }
+
+            if (args.Any(a => string.Equals(a, "--disable-logging", StringComparison.OrdinalIgnoreCase)))
+            {
+                var settings = AppSettingsStore.Load();
+                settings.EnableLogging = false;
+                AppSettingsStore.Save(settings);
+                Console.WriteLine("Logging disabled.");
+            }
+
+            return remaining;
         }
 
         private static bool TryCreateFeatureService(out FeatureServiceProxy service, out string error)
@@ -127,6 +159,7 @@ namespace YMMResourceUnpackerApp
             catch (Exception ex)
             {
                 error = $"Features の読み込みに失敗しました: {ex.Message}";
+                AppLogger.LogException(ex, "Features load failed.");
                 return false;
             }
         }
@@ -159,27 +192,6 @@ namespace YMMResourceUnpackerApp
             }
         }
 
-        private static bool IsLicenseArgument(string argument)
-        {
-            return string.Equals(argument, "--licenses", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(argument, "--license", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static void PrintThirdPartyNotices()
-        {
-            var noticesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ThirdPartyNoticesFileName);
-            if (!File.Exists(noticesPath))
-            {
-                Console.WriteLine("Third-party notices file was not found.");
-                Console.WriteLine("YMMPXLib (MIT)");
-                Console.WriteLine("SharpCompress 0.38.0 (MIT)");
-                Console.WriteLine("ZstdSharp.Port 0.8.1 (MIT)");
-                return;
-            }
-
-            Console.WriteLine(File.ReadAllText(noticesPath));
-        }
-
         [SupportedOSPlatform("windows")]
         static void EnsureFileAssociation()
         {
@@ -209,10 +221,12 @@ namespace YMMResourceUnpackerApp
 
                 NotifyShellAssociationChanged();
                 Console.WriteLine(".ymmpx の関連付けが完了しました（ユーザー単位）。");
+                AppLogger.LogInfo("File association updated.");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"関連付けに失敗しました: {ex.Message}");
+                AppLogger.LogException(ex, "File association failed.");
             }
         }
 
@@ -222,6 +236,13 @@ namespace YMMResourceUnpackerApp
             const int SHCNE_ASSOCCHANGED = 0x08000000;
             const uint SHCNF_IDLIST = 0x0000;
             SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
+        }
+
+        private static string SanitizeArg(string arg)
+        {
+            if (string.IsNullOrWhiteSpace(arg))
+                return "<empty>";
+            return Path.GetFileName(arg);
         }
 
         [DllImport("shell32.dll")]

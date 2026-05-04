@@ -5,4 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Version Condition="'$(Version)'==''">0.0.0</Version>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\YMMResourcePackager.Shared\YMMResourcePackager.Shared.csproj" />
+  </ItemGroup>
 </Project>

@@ -26,6 +26,10 @@
            Private="false" ExcludeAssets="runtime" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\YMMResourcePackager.Shared\YMMResourcePackager.Shared.csproj" />
+  </ItemGroup>
+
   <Target Name="BuildFeatures" BeforeTargets="Build">
     <MSBuild
       Projects="..\YMMResourcePackager.Features\YMMResourcePackager.Features.csproj"
@@ -43,12 +47,14 @@
   <Target Name="CopyArtifactsToOutput" AfterTargets="Build">
     <PropertyGroup>
       <FeaturesOutputPath>$(MSBuildThisFileDirectory)..\YMMResourcePackager.Features\bin\$(Configuration)\net10.0-windows\YMMResourcePackager.Features.dll</FeaturesOutputPath>
+      <SharedOutputPath>$(MSBuildThisFileDirectory)..\YMMResourcePackager.Shared\bin\$(Configuration)\net10.0\YMMResourcePackager.Shared.dll</SharedOutputPath>
       <UnpackerExeOutputPath>$(MSBuildThisFileDirectory)..\YMMResourceUnpackerApp\bin\$(Configuration)\net10.0\win-x64\publish\YMMResourceUnpackerApp.exe</UnpackerExeOutputPath>
       <UnpackerDllOutputPath>$(MSBuildThisFileDirectory)..\YMMResourceUnpackerApp\bin\$(Configuration)\net10.0\win-x64\YMMResourceUnpackerApp.dll</UnpackerDllOutputPath>
       <UnpackerRuntimeConfigOutputPath>$(MSBuildThisFileDirectory)..\YMMResourceUnpackerApp\bin\$(Configuration)\net10.0\win-x64\YMMResourceUnpackerApp.runtimeconfig.json</UnpackerRuntimeConfigOutputPath>
     </PropertyGroup>
 
     <Copy SourceFiles="$(FeaturesOutputPath)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(FeaturesOutputPath)')" />
+    <Copy SourceFiles="$(SharedOutputPath)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(SharedOutputPath)')" />
     <Copy SourceFiles="$(UnpackerExeOutputPath)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(UnpackerExeOutputPath)')" />
     <Copy SourceFiles="$(UnpackerDllOutputPath)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(UnpackerDllOutputPath)')" />
     <Copy SourceFiles="$(UnpackerRuntimeConfigOutputPath)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(UnpackerRuntimeConfigOutputPath)')" />
@@ -61,6 +67,7 @@
     <PropertyGroup>
       <PluginOutputDir>$(YMM4_PATH)\user\plugin\$(AssemblyName)</PluginOutputDir>
       <FeaturesOutputPath>$(MSBuildThisFileDirectory)..\YMMResourcePackager.Features\bin\$(Configuration)\net10.0-windows\YMMResourcePackager.Features.dll</FeaturesOutputPath>
+      <SharedOutputPath>$(MSBuildThisFileDirectory)..\YMMResourcePackager.Shared\bin\$(Configuration)\net10.0\YMMResourcePackager.Shared.dll</SharedOutputPath>
       <UnpackerExeOutputPath>$(MSBuildThisFileDirectory)..\YMMResourceUnpackerApp\bin\$(Configuration)\net10.0\win-x64\publish\YMMResourceUnpackerApp.exe</UnpackerExeOutputPath>
       <UnpackerDllOutputPath>$(MSBuildThisFileDirectory)..\YMMResourceUnpackerApp\bin\$(Configuration)\net10.0\win-x64\YMMResourceUnpackerApp.dll</UnpackerDllOutputPath>
       <UnpackerRuntimeConfigOutputPath>$(MSBuildThisFileDirectory)..\YMMResourceUnpackerApp\bin\$(Configuration)\net10.0\win-x64\YMMResourceUnpackerApp.runtimeconfig.json</UnpackerRuntimeConfigOutputPath>
@@ -71,6 +78,7 @@
     <ItemGroup>
       <PluginFiles Include="$(TargetDir)$(AssemblyName).dll" />
       <PluginFiles Include="$(TargetDir)$(AssemblyName).deps.json" Condition="Exists('$(TargetDir)$(AssemblyName).deps.json')" />
+      <PluginFiles Include="$(SharedOutputPath)" Condition="Exists('$(SharedOutputPath)')" />
       <PluginFiles Include="$(FeaturesOutputPath)" Condition="Exists('$(FeaturesOutputPath)')" />
       <PluginFiles Include="$(UnpackerExeOutputPath)" Condition="Exists('$(UnpackerExeOutputPath)')" />
       <PluginFiles Include="$(UnpackerDllOutputPath)" Condition="Exists('$(UnpackerDllOutputPath)')" />

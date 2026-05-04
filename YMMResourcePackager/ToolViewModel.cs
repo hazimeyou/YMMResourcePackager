@@ -3,11 +3,11 @@
     public class ToolViewModel : BaseViewModel
     {
         private const string OptionsFileName = "packaging_options.json";
-        private const string ThirdPartyNoticesFileName = "THIRD-PARTY-NOTICES.txt";
         private const string YmmpxLibPluginDownloadUrl = "https://github.com/hazimeyou/YmmpxLib/releases/latest/download/YmmpxLibPlugin.ymme";
         private static readonly JsonSerializerOptions WriteIndentedJsonOptions = new() { WriteIndented = true };
         private string? _selectedProject;
         private readonly AsyncRelayCommand _packageCommand;
+        private bool _enableLogging;
         public static string PluginDirectory => AppDirectories.PluginDirectory;
 
         public string? SelectedProject
@@ -49,22 +49,41 @@
             }
         }
 
+        public bool EnableLogging
+        {
+            get => _enableLogging;
+            set
+            {
+                if (!SetProperty(ref _enableLogging, value))
+                    return;
+
+                var settings = YMMResourcePackager.Shared.AppSettingsStore.Load();
+                settings.EnableLogging = value;
+                YMMResourcePackager.Shared.AppSettingsStore.Save(settings);
+                YMMResourcePackager.Shared.AppLogger.LogInfo($"Logging setting changed: EnableLogging={value}");
+            }
+        }
+
         public ICommand PackageCommand => _packageCommand;
         public ICommand SelectProjectCommand { get; }
         public ICommand UseOpenedProjectCommand { get; }
         public ICommand AssociateYmmpxCommand { get; }
-        public ICommand ShowLicensesCommand { get; }
         public ICommand OpenExcludeSettingCommand { get; }
+        public ICommand OpenLogFolderCommand { get; }
+        public ICommand OpenLatestLogCommand { get; }
 
         public ToolViewModel()
         {
             LoadPackagingOptions();
+            _enableLogging = YMMResourcePackager.Shared.AppSettingsStore.Load().EnableLogging;
             _packageCommand = new AsyncRelayCommand(PackageProjectAsync, CanPackageProject);
             SelectProjectCommand = new RelayCommand(OpenProjectDialog);
             UseOpenedProjectCommand = new RelayCommand(UseOpenedProject);
             AssociateYmmpxCommand = new RelayCommand(AssociateYmmpx);
-            ShowLicensesCommand = new RelayCommand(ShowLicenses);
             OpenExcludeSettingCommand = new RelayCommand(OpenExcludeSetting);
+            OpenLogFolderCommand = new RelayCommand(OpenLogFolder);
+            OpenLatestLogCommand = new RelayCommand(OpenLatestLog);
+            YMMResourcePackager.Shared.AppLogger.LogInfo("ToolViewModel initialized.");
         }
 
         private bool CanPackageProject()
@@ -86,10 +105,12 @@
                 SelectedProject = projectPath;
                 Status = $"選択: {SelectedProject}";
                 Progress = 0;
+                YMMResourcePackager.Shared.AppLogger.LogInfo("Opened project selected from current project.");
             }
             catch (Exception ex)
             {
                 Status = $"エラー: {ex.Message}";
+                YMMResourcePackager.Shared.AppLogger.LogException(ex, "UseOpenedProject failed.");
                 MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -294,6 +315,42 @@
                 SelectedProject = dlg.FileName;
                 Status = $"選択: {SelectedProject}";
                 Progress = 0;
+                YMMResourcePackager.Shared.AppLogger.LogInfo("Project selected from file dialog.");
+            }
+        }
+
+        private void OpenLogFolder()
+        {
+            try
+            {
+                var logsDir = YMMResourcePackager.Shared.AppLogger.GetLogsDirectoryPath();
+                Directory.CreateDirectory(logsDir);
+                Process.Start(new ProcessStartInfo { FileName = logsDir, UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                YMMResourcePackager.Shared.AppLogger.LogException(ex, "Failed to open log folder.");
+                MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OpenLatestLog()
+        {
+            try
+            {
+                var latest = YMMResourcePackager.Shared.AppLogger.GetLatestLogFilePath();
+                if (string.IsNullOrWhiteSpace(latest) || !File.Exists(latest))
+                {
+                    MessageBox.Show("最新ログが見つかりません。", "情報", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo { FileName = latest, UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                YMMResourcePackager.Shared.AppLogger.LogException(ex, "Failed to open latest log file.");
+                MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -316,25 +373,6 @@
             }
         }
 
-        private void ShowLicenses()
-        {
-            try
-            {
-                var noticesPath = Path.Combine(PluginDirectory, "YMMResourcePackager", ThirdPartyNoticesFileName);
-                if (!File.Exists(noticesPath))
-                {
-                    MessageBox.Show($"ライセンス情報ファイルが見つかりません:\n{noticesPath}", "ライセンス", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-
-                Process.Start(new ProcessStartInfo { FileName = noticesPath, UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
         private async Task PackageProjectAsync()
         {
             if (string.IsNullOrEmpty(SelectedProject) || !File.Exists(SelectedProject))
@@ -345,8 +383,10 @@
 
             try
             {
+                YMMResourcePackager.Shared.AppLogger.LogInfo("Pack requested.");
                 if (!IsYmmpxLibInstalled())
                 {
+                    YMMResourcePackager.Shared.AppLogger.LogWarning("YmmpxLib not found. Starting prerequisite install flow.");
                     var installed = await TryInstallYmmpxLibPluginAsync();
                     if (!installed)
                         return;
@@ -362,6 +402,7 @@
 
                 Status = "素材同梱を開始します...";
                 Progress = 0;
+                YMMResourcePackager.Shared.AppLogger.LogInfo("Pack started.");
 
                 string baseDir = Path.GetDirectoryName(SelectedProject)!;
                 string projectName = Path.GetFileNameWithoutExtension(SelectedProject);
@@ -401,12 +442,14 @@
 
                 Progress = 100;
                 Status = $"完了: {outputPath}";
+                YMMResourcePackager.Shared.AppLogger.LogInfo("Pack completed successfully.");
                 MessageBox.Show($"パッケージ化が完了しました。\n\n{outputPath}", "完了", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
                 Status = $"エラー: {ex.Message}";
                 Progress = 0;
+                YMMResourcePackager.Shared.AppLogger.LogException(ex, "Pack failed.");
                 MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -417,9 +460,14 @@
             {
                 var pluginRoot = AppDirectories.PluginDirectory;
                 if (string.IsNullOrWhiteSpace(pluginRoot) || !Directory.Exists(pluginRoot))
+                {
+                    YMMResourcePackager.Shared.AppLogger.LogWarning("Plugin directory is unavailable while checking YmmpxLib.");
                     return false;
+                }
 
-                return Directory.EnumerateFiles(pluginRoot, "YmmpxLib.dll", SearchOption.AllDirectories).Any();
+                var exists = Directory.EnumerateFiles(pluginRoot, "YmmpxLib.dll", SearchOption.AllDirectories).Any();
+                YMMResourcePackager.Shared.AppLogger.LogInfo($"YmmpxLib install check: {(exists ? "installed" : "not installed")}.");
+                return exists;
             }
             catch
             {
@@ -448,13 +496,20 @@
                 }
 
                 var ymmePath = Path.Combine(Path.GetTempPath(), $"YmmpxLibPlugin_{Guid.NewGuid():N}.ymme");
-                using var http = new System.Net.Http.HttpClient();
-                using var response = await http.GetAsync(YmmpxLibPluginDownloadUrl);
+                YMMResourcePackager.Shared.AppLogger.LogInfo("YmmpxLibPlugin download started.");
+                using var http = new System.Net.Http.HttpClient
+                {
+                    Timeout = TimeSpan.FromSeconds(30)
+                };
+                using var response = await http.GetAsync(
+                    YmmpxLibPluginDownloadUrl,
+                    System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
                 response.EnsureSuccessStatusCode();
                 await using (var fs = File.Create(ymmePath))
                 {
                     await response.Content.CopyToAsync(fs);
                 }
+                YMMResourcePackager.Shared.AppLogger.LogInfo("YmmpxLibPlugin download completed.");
 
                 Process.Start(new ProcessStartInfo
                 {
@@ -462,17 +517,56 @@
                     Arguments = $"\"{ymmePath}\"",
                     UseShellExecute = true
                 });
+                YMMResourcePackager.Shared.AppLogger.LogInfo("Installer launched for YmmpxLibPlugin.");
 
+                _ = TryDeleteTempFileLaterAsync(ymmePath);
                 return true;
+            }
+            catch (TaskCanceledException)
+            {
+                YMMResourcePackager.Shared.AppLogger.LogWarning("YmmpxLibPlugin download timeout.");
+                MessageBox.Show(
+                    "YmmpxLibPlugin のダウンロードがタイムアウトしました。(30秒)\nネットワーク接続を確認して再試行してください。",
+                    "エラー",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return false;
+            }
+            catch (System.Net.Http.HttpRequestException ex)
+            {
+                var detail = ex.StatusCode is null
+                    ? ex.Message
+                    : $"HTTP {(int)ex.StatusCode} ({ex.StatusCode})";
+                YMMResourcePackager.Shared.AppLogger.LogWarning($"YmmpxLibPlugin download failed: {detail}");
+                MessageBox.Show(
+                    $"YmmpxLibPlugin のダウンロードに失敗しました。\n{detail}",
+                    "エラー",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return false;
             }
             catch (Exception ex)
             {
+                YMMResourcePackager.Shared.AppLogger.LogException(ex, "YmmpxLibPlugin installation flow failed.");
                 MessageBox.Show(
                     $"YmmpxLibPlugin の導入に失敗しました。\n{ex.Message}",
                     "エラー",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
                 return false;
+            }
+        }
+
+        private static async Task TryDeleteTempFileLaterAsync(string path)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch
+            {
             }
         }
 
