@@ -1,4 +1,4 @@
-global using System.Diagnostics;
+﻿global using System.Diagnostics;
 global using Microsoft.Win32;
 global using System.Runtime.InteropServices;
 global using System.Runtime.Versioning;
@@ -84,30 +84,48 @@ namespace YMMResourceUnpackerApp
                 Console.WriteLine($"リンク復元完了: {unpackResult.ReplacedPathCount} 件");
                 AppLogger.LogInfo($"Unpack succeeded. ReplacedPathCount={unpackResult.ReplacedPathCount}");
 
-                if (File.Exists(ymmExe))
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = ymmExe,
-                        Arguments = $"\"{ymmpPath}\"",
-                        UseShellExecute = true
-                    });
-                }
-                else
-                {
-                    AppLogger.LogWarning("YukkuriMovieMaker.exe was not found. Falling back to shell-open project path.");
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = ymmpPath,
-                        UseShellExecute = true
-                    });
-                }
+                LaunchProjectWithYmmPreferredPath(ymmpPath, ymmExe);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"エラー: {ex.Message}");
                 AppLogger.LogException(ex, "Unpack failed.");
             }
+        }
+
+        private static void LaunchProjectWithYmmPreferredPath(string ymmpPath, string fallbackYmmExePath)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = ymmpPath,
+                    UseShellExecute = true
+                });
+                AppLogger.LogInfo("Project launch requested via .ymmp association.");
+                return;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogException(ex, "Association launch failed. Trying direct YMM executable.");
+            }
+
+            if (File.Exists(fallbackYmmExePath))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = fallbackYmmExePath,
+                    Arguments = $"\"{ymmpPath}\"",
+                    UseShellExecute = true
+                });
+                AppLogger.LogInfo("Project launch requested via direct YukkuriMovieMaker.exe path.");
+                return;
+            }
+
+            AppLogger.LogError("Project launch failed: association and direct YMM path are both unavailable.");
+            Console.WriteLine("YMM の起動先が見つかりませんでした。");
+            Console.WriteLine("Enterキーで終了します...");
+            Console.ReadLine();
         }
 
         private static string[] HandleLoggingSwitches(string[] args)

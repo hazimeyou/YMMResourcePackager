@@ -205,7 +205,9 @@
             }
         }
 
-        private static bool LooksLikeYmmpPath(string path) => path.EndsWith(".ymmp", StringComparison.OrdinalIgnoreCase);
+        private static bool LooksLikeYmmpPath(string path) =>
+            path.EndsWith(".ymmp", StringComparison.OrdinalIgnoreCase) ||
+            path.EndsWith(".ymmpx", StringComparison.OrdinalIgnoreCase);
         private static string GetExcludePath() => Path.Combine(PluginDirectory, "YMMResourcePackager", "exclude.json");
         private static string GetPackagingOptionsPath() => Path.Combine(PluginDirectory, "YMMResourcePackager", OptionsFileName);
 
@@ -310,7 +312,11 @@
 
         private void OpenProjectDialog()
         {
-            var dlg = new OpenFileDialog { Filter = "YMMプロジェクト (*.ymmp)|*.ymmp", Title = "プロジェクトを選択" };
+            var dlg = new OpenFileDialog
+            {
+                Filter = "YMMプロジェクト (*.ymmp;*.ymmpx)|*.ymmp;*.ymmpx",
+                Title = "プロジェクトを選択"
+            };
             if (dlg.ShowDialog() == true)
             {
                 SelectedProject = dlg.FileName;
