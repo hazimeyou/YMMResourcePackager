@@ -3,27 +3,21 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="除外設定"
         Height="500" Width="600"
-        Background="White"
-        Foreground="Black"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="10" Background="White">
+    <DockPanel Margin="10">
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
             <Button Name="BtnSelectAll" Content="すべて選択" Click="BtnSelectAll_Click"
-                    Margin="0,0,5,0" Background="#f2f2f2" Foreground="Black"/>
+                    Margin="0,0,5,0"/>
             <Button Name="BtnDeselectAll" Content="すべて解除" Click="BtnDeselectAll_Click"
-                    Margin="0,0,5,0" Background="#f2f2f2" Foreground="Black"/>
+                    Margin="0,0,5,0"/>
             <Button Name="BtnOk" Content="OK" Click="BtnOk_Click"
-                    Width="75" Margin="0,0,5,0" Background="#0078D7" Foreground="White"/>
+                    Width="75" Margin="0,0,5,0"/>
             <Button Name="BtnCancel" Content="キャンセル" Click="BtnCancel_Click"
-                    Width="75" Background="#f2f2f2" Foreground="Black"/>
+                    Width="75"/>
         </StackPanel>
 
         <ListView Name="ExcludeListView"
-                  Background="White"
-                  Foreground="Black"
-                  BorderBrush="#CCCCCC"
-                  BorderThickness="1"
                   ItemsSource="{Binding ExcludeItems}">
             <ListView.View>
                 <GridView>
