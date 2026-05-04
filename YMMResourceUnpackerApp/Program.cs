@@ -67,12 +67,6 @@ namespace YMMResourceUnpackerApp
             }
 
             var ymmExe = Path.GetFullPath(Path.Combine(ymmRootDir, "YukkuriMovieMaker.exe"));
-            if (!File.Exists(ymmExe))
-            {
-                Console.WriteLine("YukkuriMovieMaker.exe が見つかりません。終了します。");
-                AppLogger.LogError("YukkuriMovieMaker.exe was not found.");
-                return;
-            }
 
             var baseName = Path.GetFileNameWithoutExtension(ymmpxPath);
             if (string.IsNullOrWhiteSpace(baseName))
@@ -90,12 +84,24 @@ namespace YMMResourceUnpackerApp
                 Console.WriteLine($"リンク復元完了: {unpackResult.ReplacedPathCount} 件");
                 AppLogger.LogInfo($"Unpack succeeded. ReplacedPathCount={unpackResult.ReplacedPathCount}");
 
-                Process.Start(new ProcessStartInfo
+                if (File.Exists(ymmExe))
                 {
-                    FileName = ymmExe,
-                    Arguments = $"\"{ymmpPath}\"",
-                    UseShellExecute = true
-                });
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = ymmExe,
+                        Arguments = $"\"{ymmpPath}\"",
+                        UseShellExecute = true
+                    });
+                }
+                else
+                {
+                    AppLogger.LogWarning("YukkuriMovieMaker.exe was not found. Falling back to shell-open project path.");
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = ymmpPath,
+                        UseShellExecute = true
+                    });
+                }
             }
             catch (Exception ex)
             {
