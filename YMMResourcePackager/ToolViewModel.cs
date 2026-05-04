@@ -502,7 +502,7 @@
                     return false;
                 }
 
-                var ymmePath = Path.Combine(Path.GetTempPath(), $"YmmpxLibPlugin_{Guid.NewGuid():N}.ymme");
+                var ymmePath = Path.Combine(Path.GetTempPath(), "YmmpxLibPlugin.ymme");
                 YMMResourcePackager.Shared.AppLogger.LogInfo("YmmpxLibPlugin download started.");
                 using var http = new System.Net.Http.HttpClient
                 {
