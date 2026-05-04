@@ -26,12 +26,6 @@
            Private="false" ExcludeAssets="runtime" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="THIRD-PARTY-NOTICES.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
   <Target Name="BuildFeatures" BeforeTargets="Build">
     <MSBuild
       Projects="..\YMMResourcePackager.Features\YMMResourcePackager.Features.csproj"
@@ -77,7 +71,6 @@
     <ItemGroup>
       <PluginFiles Include="$(TargetDir)$(AssemblyName).dll" />
       <PluginFiles Include="$(TargetDir)$(AssemblyName).deps.json" Condition="Exists('$(TargetDir)$(AssemblyName).deps.json')" />
-      <PluginFiles Include="$(TargetDir)THIRD-PARTY-NOTICES.txt" Condition="Exists('$(TargetDir)THIRD-PARTY-NOTICES.txt')" />
       <PluginFiles Include="$(FeaturesOutputPath)" Condition="Exists('$(FeaturesOutputPath)')" />
       <PluginFiles Include="$(UnpackerExeOutputPath)" Condition="Exists('$(UnpackerExeOutputPath)')" />
       <PluginFiles Include="$(UnpackerDllOutputPath)" Condition="Exists('$(UnpackerDllOutputPath)')" />

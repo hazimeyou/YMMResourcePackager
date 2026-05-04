@@ -19,13 +19,6 @@
     <DebugType>None</DebugType>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Content Include="THIRD-PARTY-NOTICES.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
-    </Content>
-  </ItemGroup>
-
   <Target Name="CopyDebugToYMM4" AfterTargets="Build"
       Condition="Exists('$(YMM4_PATH)') and '$(Configuration)' != 'Release'">
 
@@ -64,14 +57,12 @@
       <KeepPluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.exe" />
       <KeepPluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.dll" />
       <KeepPluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.runtimeconfig.json" />
-      <KeepPluginFiles Include="$(PluginOutputDir)\THIRD-PARTY-NOTICES.txt" />
       <StalePluginFiles Include="@(PluginDirFiles)" Exclude="@(KeepPluginFiles)" />
     </ItemGroup>
     <Delete Files="@(StalePluginFiles)" ContinueOnError="true" />
 
     <ItemGroup>
       <PluginFiles Include="$(PublishDir)$(AssemblyName).exe" />
-      <PluginFiles Include="$(PublishDir)THIRD-PARTY-NOTICES.txt" Condition="Exists('$(PublishDir)THIRD-PARTY-NOTICES.txt')" />
     </ItemGroup>
 
     <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginOutputDir)" SkipUnchangedFiles="true" ContinueOnError="WarnAndContinue" />

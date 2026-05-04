@@ -4,6 +4,7 @@
     {
         private const string OptionsFileName = "packaging_options.json";
         private const string ThirdPartyNoticesFileName = "THIRD-PARTY-NOTICES.txt";
+        private const string YmmpxLibPluginDownloadUrl = "https://github.com/hazimeyou/YmmpxLib/releases/latest/download/YmmpxLibPlugin.ymme";
         private static readonly JsonSerializerOptions WriteIndentedJsonOptions = new() { WriteIndented = true };
         private string? _selectedProject;
         private readonly AsyncRelayCommand _packageCommand;
@@ -344,6 +345,21 @@
 
             try
             {
+                if (!IsYmmpxLibInstalled())
+                {
+                    var installed = await TryInstallYmmpxLibPluginAsync();
+                    if (!installed)
+                        return;
+
+                    Status = "前提プラグインを導入しました。YMMを再起動してください。";
+                    MessageBox.Show(
+                        "前提プラグインを導入しました。YMMを再起動してください。",
+                        "再起動が必要です",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return;
+                }
+
                 Status = "素材同梱を開始します...";
                 Progress = 0;
 
@@ -392,6 +408,71 @@
                 Status = $"エラー: {ex.Message}";
                 Progress = 0;
                 MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private static bool IsYmmpxLibInstalled()
+        {
+            try
+            {
+                var pluginRoot = AppDirectories.PluginDirectory;
+                if (string.IsNullOrWhiteSpace(pluginRoot) || !Directory.Exists(pluginRoot))
+                    return false;
+
+                return Directory.EnumerateFiles(pluginRoot, "YmmpxLib.dll", SearchOption.AllDirectories).Any();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private async Task<bool> TryInstallYmmpxLibPluginAsync()
+        {
+            try
+            {
+                var installerPath = Path.Combine(
+                    AppDirectories.ResourceDirectory,
+                    "bin",
+                    "Installer",
+                    "YukkuriMovieMaker.Plugin.Installer.exe");
+
+                if (!File.Exists(installerPath))
+                {
+                    MessageBox.Show(
+                        $"インストーラーが見つかりません:\n{installerPath}",
+                        "エラー",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return false;
+                }
+
+                var ymmePath = Path.Combine(Path.GetTempPath(), $"YmmpxLibPlugin_{Guid.NewGuid():N}.ymme");
+                using var http = new System.Net.Http.HttpClient();
+                using var response = await http.GetAsync(YmmpxLibPluginDownloadUrl);
+                response.EnsureSuccessStatusCode();
+                await using (var fs = File.Create(ymmePath))
+                {
+                    await response.Content.CopyToAsync(fs);
+                }
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = installerPath,
+                    Arguments = $"\"{ymmePath}\"",
+                    UseShellExecute = true
+                });
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"YmmpxLibPlugin の導入に失敗しました。\n{ex.Message}",
+                    "エラー",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return false;
             }
         }
 
