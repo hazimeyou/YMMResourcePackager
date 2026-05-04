@@ -392,9 +392,9 @@
                     if (!installed)
                         return;
 
-                    Status = "前提プラグインを導入しました。YMMを再起動してください。";
+                    Status = "前提プラグインを起動しました。インストーラに沿ってください。再起動が必要です。";
                     MessageBox.Show(
-                        "前提プラグインを導入しました。YMMを再起動してください。",
+                        "前提プラグインを起動しました。インストーラに沿ってください。",
                         "再起動が必要です",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
