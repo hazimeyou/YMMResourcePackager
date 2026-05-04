@@ -116,6 +116,7 @@ namespace YMMResourceUnpackerApp
                 var settings = AppSettingsStore.Load();
                 settings.EnableLogging = true;
                 AppSettingsStore.Save(settings);
+                AppLogger.RefreshSettingsCache();
                 Console.WriteLine("Logging enabled.");
             }
 
@@ -124,6 +125,7 @@ namespace YMMResourceUnpackerApp
                 var settings = AppSettingsStore.Load();
                 settings.EnableLogging = false;
                 AppSettingsStore.Save(settings);
+                AppLogger.RefreshSettingsCache();
                 Console.WriteLine("Logging disabled.");
             }
 

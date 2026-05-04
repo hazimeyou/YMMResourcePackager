@@ -1,9 +1,14 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace YMMResourcePackager.Shared;
 
 public static class AppLogger
 {
+    private static readonly object WriteSync = new();
+    private static readonly object SettingsSync = new();
+    private static bool? _cachedEnableLogging;
+
     public static void LogInfo(string message) => Write("INFO", message);
     public static void LogWarning(string message) => Write("WARN", message);
     public static void LogError(string message) => Write("ERROR", message);
@@ -14,8 +19,8 @@ public static class AppLogger
         if (!string.IsNullOrWhiteSpace(message))
             detail.AppendLine(message);
         detail.AppendLine(ex.GetType().FullName ?? "Exception");
-        detail.AppendLine(ex.Message);
-        detail.AppendLine(ex.StackTrace ?? string.Empty);
+        detail.AppendLine(SanitizeForLog(ex.Message));
+        detail.AppendLine(SanitizeForLog(ex.StackTrace ?? string.Empty));
         Write("EXCEPTION", detail.ToString().Trim());
     }
 
@@ -41,16 +46,67 @@ public static class AppLogger
     {
         try
         {
-            if (!AppSettingsStore.Load().EnableLogging)
+            if (!IsLoggingEnabled())
                 return;
 
-            Directory.CreateDirectory(AppPaths.LogsDirectory);
-            var logPath = Path.Combine(AppPaths.LogsDirectory, $"{DateTime.Now:yyyy-MM-dd}.log");
-            var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{level}] {message}";
-            File.AppendAllText(logPath, line + Environment.NewLine, Encoding.UTF8);
+            lock (WriteSync)
+            {
+                Directory.CreateDirectory(AppPaths.LogsDirectory);
+                var logPath = Path.Combine(AppPaths.LogsDirectory, $"{DateTime.Now:yyyy-MM-dd}.log");
+                var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{level}] {SanitizeForLog(message)}";
+                File.AppendAllText(logPath, line + Environment.NewLine, Encoding.UTF8);
+            }
         }
         catch
         {
         }
+    }
+
+    public static void RefreshSettingsCache()
+    {
+        lock (SettingsSync)
+        {
+            try
+            {
+                _cachedEnableLogging = AppSettingsStore.Load().EnableLogging;
+            }
+            catch
+            {
+                _cachedEnableLogging = false;
+            }
+        }
+    }
+
+    private static bool IsLoggingEnabled()
+    {
+        var cached = _cachedEnableLogging;
+        if (cached.HasValue)
+            return cached.Value;
+
+        lock (SettingsSync)
+        {
+            if (_cachedEnableLogging.HasValue)
+                return _cachedEnableLogging.Value;
+
+            try
+            {
+                _cachedEnableLogging = AppSettingsStore.Load().EnableLogging;
+            }
+            catch
+            {
+                _cachedEnableLogging = false;
+            }
+
+            return _cachedEnableLogging.Value;
+        }
+    }
+
+    private static string SanitizeForLog(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        // Hide absolute Windows paths like C:\foo\bar
+        return Regex.Replace(text, @"[A-Za-z]:\\[^\s\""']+", "<path>");
     }
 }

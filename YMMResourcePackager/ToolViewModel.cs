@@ -60,6 +60,7 @@
                 var settings = YMMResourcePackager.Shared.AppSettingsStore.Load();
                 settings.EnableLogging = value;
                 YMMResourcePackager.Shared.AppSettingsStore.Save(settings);
+                YMMResourcePackager.Shared.AppLogger.RefreshSettingsCache();
                 YMMResourcePackager.Shared.AppLogger.LogInfo($"Logging setting changed: EnableLogging={value}");
             }
         }
