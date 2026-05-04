@@ -1,70 +1,93 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>
-		<TargetFramework>net10.0-windows</TargetFramework>
-		<Nullable>enable</Nullable>
-		<UseWPF>true</UseWPF>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Version Condition="'$(Version)'==''">0.0.0</Version>
-	</PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version Condition="'$(Version)'==''">0.0.0</Version>
+  </PropertyGroup>
 
+  <ItemGroup Condition="Exists('$(YMM4_PATH)\YukkuriMovieMaker.Plugin.dll')">
+    <Reference Include="YukkuriMovieMaker.Plugin"
+           HintPath="$(YMM4_PATH)\YukkuriMovieMaker.Plugin.dll"
+           Private="false" ExcludeAssets="runtime" />
+    <Reference Include="YukkuriMovieMaker.Controls"
+           HintPath="$(YMM4_PATH)\YukkuriMovieMaker.Controls.dll"
+           Private="false" ExcludeAssets="runtime" />
+  </ItemGroup>
 
-	<ItemGroup Condition="Exists('$(YMM4_PATH)\YukkuriMovieMaker.Plugin.dll')">
-		<Reference Include="YukkuriMovieMaker.Plugin"
-				   HintPath="$(YMM4_PATH)\YukkuriMovieMaker.Plugin.dll"
-				   Private="false" ExcludeAssets="runtime" />
-		<Reference Include="YukkuriMovieMaker.Controls"
-				   HintPath="$(YMM4_PATH)\YukkuriMovieMaker.Controls.dll"
-				   Private="false" ExcludeAssets="runtime" />
-	</ItemGroup>
+  <ItemGroup Condition="!Exists('$(YMM4_PATH)\YukkuriMovieMaker.Plugin.dll')">
+    <Reference Include="YukkuriMovieMaker.Plugin"
+           HintPath="..\libs\YukkuriMovieMaker.Plugin.dll"
+           Private="false" ExcludeAssets="runtime" />
+    <Reference Include="YukkuriMovieMaker.Controls"
+           HintPath="..\libs\YukkuriMovieMaker.Controls.dll"
+           Private="false" ExcludeAssets="runtime" />
+  </ItemGroup>
 
-	<ItemGroup Condition="!Exists('$(YMM4_PATH)\YukkuriMovieMaker.Plugin.dll')">
-		<Reference Include="YukkuriMovieMaker.Plugin"
-				   HintPath="..\libs\YukkuriMovieMaker.Plugin.dll"
-				   Private="false" ExcludeAssets="runtime" />
-		<Reference Include="YukkuriMovieMaker.Controls"
-				   HintPath="..\libs\YukkuriMovieMaker.Controls.dll"
-				   Private="false" ExcludeAssets="runtime" />
-	</ItemGroup>
+  <ItemGroup>
+    <Content Include="THIRD-PARTY-NOTICES.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\YmmpxLib\YMMPXLib\YMMPXLib.csproj" />
-	</ItemGroup>
+  <Target Name="BuildFeatures" BeforeTargets="Build">
+    <MSBuild
+      Projects="..\YMMResourcePackager.Features\YMMResourcePackager.Features.csproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration);Version=$(Version)" />
+  </Target>
 
-	<ItemGroup>
-		<Content Include="THIRD-PARTY-NOTICES.txt">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</Content>
-	</ItemGroup>
+  <Target Name="BuildUnpacker" BeforeTargets="Build">
+    <MSBuild
+      Projects="..\YMMResourceUnpackerApp\YMMResourceUnpackerApp.csproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration);Version=$(Version)" />
+  </Target>
 
-	<Target Name="CopyToYMM4" AfterTargets="Build"
-			Condition="Exists('$(YMM4_PATH)')">
+  <Target Name="CopyArtifactsToOutput" AfterTargets="Build">
+    <PropertyGroup>
+      <FeaturesOutputPath>$(MSBuildThisFileDirectory)..\YMMResourcePackager.Features\bin\$(Configuration)\net10.0-windows\YMMResourcePackager.Features.dll</FeaturesOutputPath>
+      <UnpackerExeOutputPath>$(MSBuildThisFileDirectory)..\YMMResourceUnpackerApp\bin\$(Configuration)\net10.0\win-x64\publish\YMMResourceUnpackerApp.exe</UnpackerExeOutputPath>
+      <UnpackerDllOutputPath>$(MSBuildThisFileDirectory)..\YMMResourceUnpackerApp\bin\$(Configuration)\net10.0\win-x64\YMMResourceUnpackerApp.dll</UnpackerDllOutputPath>
+      <UnpackerRuntimeConfigOutputPath>$(MSBuildThisFileDirectory)..\YMMResourceUnpackerApp\bin\$(Configuration)\net10.0\win-x64\YMMResourceUnpackerApp.runtimeconfig.json</UnpackerRuntimeConfigOutputPath>
+    </PropertyGroup>
 
-		<PropertyGroup>
-			<PluginOutputDir>
-				$(YMM4_PATH)\user\plugin\$(AssemblyName)
-			</PluginOutputDir>
-		</PropertyGroup>
+    <Copy SourceFiles="$(FeaturesOutputPath)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(FeaturesOutputPath)')" />
+    <Copy SourceFiles="$(UnpackerExeOutputPath)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(UnpackerExeOutputPath)')" />
+    <Copy SourceFiles="$(UnpackerDllOutputPath)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(UnpackerDllOutputPath)')" />
+    <Copy SourceFiles="$(UnpackerRuntimeConfigOutputPath)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(UnpackerRuntimeConfigOutputPath)')" />
 
-		<MakeDir Directories="$(PluginOutputDir)"
-				 Condition="!Exists('$(PluginOutputDir)')" />
+    <Delete Files="$(TargetDir)YmmpxLib.dll" Condition="Exists('$(TargetDir)YmmpxLib.dll')" />
+    <Delete Files="$(TargetDir)YmmpxLib.deps.json" Condition="Exists('$(TargetDir)YmmpxLib.deps.json')" />
+  </Target>
 
-		<ItemGroup>
-			<PluginFiles Include="$(TargetDir)$(AssemblyName).dll" />
-			<PluginFiles Include="$(TargetDir)YMMResourcePackager.YmmpxLib.dll"
-						 Condition="Exists('$(TargetDir)YMMResourcePackager.YmmpxLib.dll')" />
-			<PluginFiles Include="$(TargetDir)$(AssemblyName).deps.json"
-						 Condition="Exists('$(TargetDir)$(AssemblyName).deps.json')" />
-			<PluginFiles Include="$(TargetDir)THIRD-PARTY-NOTICES.txt"
-						 Condition="Exists('$(TargetDir)THIRD-PARTY-NOTICES.txt')" />
-		</ItemGroup>
+  <Target Name="CopyToYMM4" AfterTargets="Build" Condition="Exists('$(YMM4_PATH)')">
+    <PropertyGroup>
+      <PluginOutputDir>$(YMM4_PATH)\user\plugin\$(AssemblyName)</PluginOutputDir>
+      <FeaturesOutputPath>$(MSBuildThisFileDirectory)..\YMMResourcePackager.Features\bin\$(Configuration)\net10.0-windows\YMMResourcePackager.Features.dll</FeaturesOutputPath>
+      <UnpackerExeOutputPath>$(MSBuildThisFileDirectory)..\YMMResourceUnpackerApp\bin\$(Configuration)\net10.0\win-x64\publish\YMMResourceUnpackerApp.exe</UnpackerExeOutputPath>
+      <UnpackerDllOutputPath>$(MSBuildThisFileDirectory)..\YMMResourceUnpackerApp\bin\$(Configuration)\net10.0\win-x64\YMMResourceUnpackerApp.dll</UnpackerDllOutputPath>
+      <UnpackerRuntimeConfigOutputPath>$(MSBuildThisFileDirectory)..\YMMResourceUnpackerApp\bin\$(Configuration)\net10.0\win-x64\YMMResourceUnpackerApp.runtimeconfig.json</UnpackerRuntimeConfigOutputPath>
+    </PropertyGroup>
 
-		<Copy SourceFiles="@(PluginFiles)"
-			  DestinationFolder="$(PluginOutputDir)"
-			  SkipUnchangedFiles="true"
-			  ContinueOnError="WarnAndContinue" />
-	</Target>
+    <MakeDir Directories="$(PluginOutputDir)" Condition="!Exists('$(PluginOutputDir)')" />
 
+    <ItemGroup>
+      <PluginFiles Include="$(TargetDir)$(AssemblyName).dll" />
+      <PluginFiles Include="$(TargetDir)$(AssemblyName).deps.json" Condition="Exists('$(TargetDir)$(AssemblyName).deps.json')" />
+      <PluginFiles Include="$(TargetDir)THIRD-PARTY-NOTICES.txt" Condition="Exists('$(TargetDir)THIRD-PARTY-NOTICES.txt')" />
+      <PluginFiles Include="$(FeaturesOutputPath)" Condition="Exists('$(FeaturesOutputPath)')" />
+      <PluginFiles Include="$(UnpackerExeOutputPath)" Condition="Exists('$(UnpackerExeOutputPath)')" />
+      <PluginFiles Include="$(UnpackerDllOutputPath)" Condition="Exists('$(UnpackerDllOutputPath)')" />
+      <PluginFiles Include="$(UnpackerRuntimeConfigOutputPath)" Condition="Exists('$(UnpackerRuntimeConfigOutputPath)')" />
+    </ItemGroup>
 
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginOutputDir)" SkipUnchangedFiles="true" ContinueOnError="WarnAndContinue" />
+
+    <Delete Files="$(PluginOutputDir)\YmmpxLib.dll" Condition="Exists('$(PluginOutputDir)\YmmpxLib.dll')" />
+    <Delete Files="$(PluginOutputDir)\YmmpxLib.deps.json" Condition="Exists('$(PluginOutputDir)\YmmpxLib.deps.json')" />
+  </Target>
 
 </Project>

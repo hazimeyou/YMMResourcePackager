@@ -1,8 +1,8 @@
-global using System.Diagnostics;
+﻿global using System.Diagnostics;
 global using Microsoft.Win32;
 global using System.Runtime.InteropServices;
 global using System.Runtime.Versioning;
-global using YmmpxLib;
+using System.Reflection;
 
 namespace YMMResourceUnpackerApp
 {
@@ -50,8 +50,13 @@ namespace YMMResourceUnpackerApp
                 ymmpxPath = input;
             }
 
-            var appDir = AppDomain.CurrentDomain.BaseDirectory;
+            if (!TryCreateFeatureService(out var service, out var serviceError))
+            {
+                Console.WriteLine(serviceError);
+                return;
+            }
 
+            var appDir = AppDomain.CurrentDomain.BaseDirectory;
             var suffixToRemove = @"user\plugin\YMMResourcePackager\";
             var ymmRootDir = appDir;
             if (ymmRootDir.EndsWith(suffixToRemove, StringComparison.OrdinalIgnoreCase))
@@ -71,12 +76,12 @@ namespace YMMResourceUnpackerApp
                 baseName = "unpacked_ymmpx";
 
             var desiredDir = Path.Combine(appDir, baseName);
-            var finalDir = YmmpxPackageService.GetAvailableDirectoryPath(desiredDir);
+            var finalDir = service.GetAvailableDirectoryPath(desiredDir);
 
             try
             {
                 Console.WriteLine("展開中...");
-                var unpackResult = YmmpxPackageService.ExtractAndRestoreProject(ymmpxPath, finalDir);
+                var unpackResult = service.ExtractAndRestoreProject(ymmpxPath, finalDir);
                 var ymmpPath = unpackResult.ProjectFilePath;
                 Console.WriteLine($"リンク復元完了: {unpackResult.ReplacedPathCount} 件");
 
@@ -90,6 +95,67 @@ namespace YMMResourceUnpackerApp
             catch (Exception ex)
             {
                 Console.WriteLine($"エラー: {ex.Message}");
+            }
+        }
+
+        private static bool TryCreateFeatureService(out FeatureServiceProxy service, out string error)
+        {
+            service = default;
+            error = string.Empty;
+
+            var featurePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "YMMResourcePackager.Features.dll");
+            if (!File.Exists(featurePath))
+            {
+                error = $"Features DLL が見つかりません: {featurePath}";
+                return false;
+            }
+
+            try
+            {
+                var assembly = Assembly.LoadFrom(featurePath);
+                var entryType = assembly.GetType("YMMResourcePackager.Features.EntryPoint")
+                    ?? throw new InvalidOperationException("Features EntryPoint 型が見つかりません。");
+
+                var unpackMethod = entryType.GetMethod("RunUnpack", BindingFlags.Public | BindingFlags.Static)
+                    ?? throw new InvalidOperationException("RunUnpack メソッドが見つかりません。");
+                var getAvailableDirMethod = entryType.GetMethod("GetAvailableUnpackDirectory", BindingFlags.Public | BindingFlags.Static)
+                    ?? throw new InvalidOperationException("GetAvailableUnpackDirectory メソッドが見つかりません。");
+
+                service = new FeatureServiceProxy(getAvailableDirMethod, unpackMethod);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = $"Features の読み込みに失敗しました: {ex.Message}";
+                return false;
+            }
+        }
+
+        private readonly record struct YmmpxExtractResult(string ProjectFilePath, int ReplacedPathCount);
+
+        private readonly struct FeatureServiceProxy
+        {
+            private readonly MethodInfo _getAvailableDirMethod;
+            private readonly MethodInfo _unpackMethod;
+
+            public FeatureServiceProxy(MethodInfo getAvailableDirMethod, MethodInfo unpackMethod)
+            {
+                _getAvailableDirMethod = getAvailableDirMethod;
+                _unpackMethod = unpackMethod;
+            }
+
+            public string GetAvailableDirectoryPath(string desiredDir)
+            {
+                return (string?)_getAvailableDirMethod.Invoke(null, [desiredDir]) ?? desiredDir;
+            }
+
+            public YmmpxExtractResult ExtractAndRestoreProject(string ymmpxPath, string finalDir)
+            {
+                object[] args = [ymmpxPath, finalDir, 0];
+                var projectPath = _unpackMethod.Invoke(null, args)?.ToString()
+                    ?? throw new InvalidOperationException("展開後のプロジェクトパスが取得できません。");
+                var count = args[2] is int i ? i : 0;
+                return new YmmpxExtractResult(projectPath, count);
             }
         }
 
@@ -125,24 +191,23 @@ namespace YMMResourceUnpackerApp
 
                 using (var key = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{ext}"))
                 {
-                    key.SetValue("", progId);
+                    key?.SetValue("", progId);
                 }
 
                 using (var key = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{progId}"))
                 {
-                    key.SetValue("", "YMM Resource Packager File");
-                    using (var iconKey = key.CreateSubKey("DefaultIcon"))
+                    key?.SetValue("", "YMM Resource Packager File");
+                    using (var iconKey = key?.CreateSubKey("DefaultIcon"))
                     {
                         iconKey?.SetValue("", $"\"{appPath}\",0");
                     }
-                    using (var shellKey = key.CreateSubKey("shell\\open\\command"))
+                    using (var shellKey = key?.CreateSubKey("shell\\open\\command"))
                     {
-                        shellKey.SetValue("", $"\"{appPath}\" \"%1\"");
+                        shellKey?.SetValue("", $"\"{appPath}\" \"%1\"");
                     }
                 }
 
                 NotifyShellAssociationChanged();
-
                 Console.WriteLine(".ymmpx の関連付けが完了しました（ユーザー単位）。");
             }
             catch (Exception ex)

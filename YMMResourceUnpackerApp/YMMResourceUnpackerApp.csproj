@@ -1,108 +1,95 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>
-		<OutputType>Exe</OutputType>
-		<TargetFramework>net10.0</TargetFramework>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
-		<Version Condition="'$(Version)'==''">0.0.0</Version>
-		<PublishSingleFile>true</PublishSingleFile>
-		<PublishSelfContained>true</PublishSelfContained>
-		<SelfContained>true</SelfContained>
-		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
-		<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-		<ApplicationIcon>ymmpx.ico</ApplicationIcon>
-	</PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Version Condition="'$(Version)'==''">0.0.0</Version>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishSelfContained>true</PublishSelfContained>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <ApplicationIcon>ymmpx.ico</ApplicationIcon>
+  </PropertyGroup>
 
-	<PropertyGroup Condition="'$(Configuration)'=='Release'">
-		<DebugSymbols>false</DebugSymbols>
-		<DebugType>None</DebugType>
-	</PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
+  </PropertyGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\YmmpxLib\YMMPXLib\YMMPXLib.csproj" />
-	</ItemGroup>
+  <ItemGroup>
+    <Content Include="THIRD-PARTY-NOTICES.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
 
-	<ItemGroup>
-		<Content Include="THIRD-PARTY-NOTICES.txt">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<CopyToPublishDirectory>Always</CopyToPublishDirectory>
-		</Content>
-	</ItemGroup>
+  <Target Name="CopyDebugToYMM4" AfterTargets="Build"
+      Condition="Exists('$(YMM4_PATH)') and '$(Configuration)' != 'Release'">
 
-	<Target Name="CopyDebugToYMM4" AfterTargets="Build"
-			Condition="Exists('$(YMM4_PATH)') and '$(Configuration)' != 'Release'">
+    <PropertyGroup>
+      <PluginOutputDir>
+        $(YMM4_PATH)\user\plugin\YMMResourcePackager
+      </PluginOutputDir>
+    </PropertyGroup>
 
-		<PropertyGroup>
-			<PluginOutputDir>
-				$(YMM4_PATH)\user\plugin\YMMResourcePackager
-			</PluginOutputDir>
-		</PropertyGroup>
+    <MakeDir Directories="$(PluginOutputDir)" Condition="!Exists('$(PluginOutputDir)')" />
 
-		<MakeDir Directories="$(PluginOutputDir)"
-				 Condition="!Exists('$(PluginOutputDir)')" />
+    <ItemGroup>
+      <PluginFiles Include="$(TargetDir)*.*" Exclude="$(TargetDir)*.pdb" />
+    </ItemGroup>
 
-		<ItemGroup>
-			<!-- Debug build is not single-file publish; copy all runtime files required by apphost -->
-			<PluginFiles Include="$(TargetDir)*.*" Exclude="$(TargetDir)*.pdb" />
-		</ItemGroup>
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginOutputDir)" SkipUnchangedFiles="true" ContinueOnError="WarnAndContinue" />
+  </Target>
 
-		<Copy SourceFiles="@(PluginFiles)"
-			  DestinationFolder="$(PluginOutputDir)"
-			  SkipUnchangedFiles="true"
-			  ContinueOnError="WarnAndContinue" />
-	</Target>
+  <Target Name="CopyReleasePublishToYMM4" AfterTargets="Publish"
+      Condition="Exists('$(YMM4_PATH)') and '$(Configuration)' == 'Release'">
 
-	<Target Name="CopyReleasePublishToYMM4" AfterTargets="Publish"
-			Condition="Exists('$(YMM4_PATH)') and '$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <PluginOutputDir>
+        $(YMM4_PATH)\user\plugin\YMMResourcePackager
+      </PluginOutputDir>
+    </PropertyGroup>
 
-		<PropertyGroup>
-			<PluginOutputDir>
-				$(YMM4_PATH)\user\plugin\YMMResourcePackager
-			</PluginOutputDir>
-		</PropertyGroup>
+    <MakeDir Directories="$(PluginOutputDir)" Condition="!Exists('$(PluginOutputDir)')" />
 
-		<MakeDir Directories="$(PluginOutputDir)"
-				 Condition="!Exists('$(PluginOutputDir)')" />
+    <ItemGroup>
+      <PluginDirFiles Include="$(PluginOutputDir)\*.*" />
+      <KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.dll" />
+      <KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.Features.dll" />
+      <KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.pdb" />
+      <KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.deps.json" />
+      <KeepPluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.exe" />
+      <KeepPluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.dll" />
+      <KeepPluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.runtimeconfig.json" />
+      <KeepPluginFiles Include="$(PluginOutputDir)\THIRD-PARTY-NOTICES.txt" />
+      <StalePluginFiles Include="@(PluginDirFiles)" Exclude="@(KeepPluginFiles)" />
+    </ItemGroup>
+    <Delete Files="@(StalePluginFiles)" ContinueOnError="true" />
 
-		<ItemGroup>
-			<PluginDirFiles Include="$(PluginOutputDir)\*.*" />
-			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.dll" />
-			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.YmmpxLib.dll" />
-			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.pdb" />
-			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.deps.json" />
-			<KeepPluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.exe" />
-			<KeepPluginFiles Include="$(PluginOutputDir)\THIRD-PARTY-NOTICES.txt" />
-			<StalePluginFiles Include="@(PluginDirFiles)"
-							  Exclude="@(KeepPluginFiles)" />
-		</ItemGroup>
-		<Delete Files="@(StalePluginFiles)" ContinueOnError="true" />
+    <ItemGroup>
+      <PluginFiles Include="$(PublishDir)$(AssemblyName).exe" />
+      <PluginFiles Include="$(PublishDir)THIRD-PARTY-NOTICES.txt" Condition="Exists('$(PublishDir)THIRD-PARTY-NOTICES.txt')" />
+    </ItemGroup>
 
-		<ItemGroup>
-			<PluginFiles Include="$(PublishDir)$(AssemblyName).exe" />
-			<PluginFiles Include="$(PublishDir)THIRD-PARTY-NOTICES.txt"
-						 Condition="Exists('$(PublishDir)THIRD-PARTY-NOTICES.txt')" />
-		</ItemGroup>
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginOutputDir)" SkipUnchangedFiles="true" ContinueOnError="WarnAndContinue" />
+  </Target>
 
-		<Copy SourceFiles="@(PluginFiles)"
-			  DestinationFolder="$(PluginOutputDir)"
-			  SkipUnchangedFiles="true"
-			  ContinueOnError="WarnAndContinue" />
-	</Target>
-
-	<Target Name="PublishReleaseForYMMOnBuild"
-			AfterTargets="Build"
-			Condition="Exists('$(YMM4_PATH)') and '$(Configuration)' == 'Release' and '$(_ReleaseBuildPublishDone)' != 'true'">
-		<MSBuild Projects="$(MSBuildProjectFullPath)"
-				 Targets="Publish"
-				 Properties="Configuration=$(Configuration);
-							 RuntimeIdentifier=$(RuntimeIdentifier);
-							 PublishSingleFile=$(PublishSingleFile);
-							 PublishSelfContained=$(PublishSelfContained);
-							 SelfContained=$(SelfContained);
-							 EnableCompressionInSingleFile=$(EnableCompressionInSingleFile);
-							 NoBuild=true;
-							 YMM4_PATH=$(YMM4_PATH);
-							 _ReleaseBuildPublishDone=true" />
-	</Target>
+  <Target Name="PublishReleaseForYMMOnBuild"
+      AfterTargets="Build"
+      Condition="Exists('$(YMM4_PATH)') and '$(Configuration)' == 'Release' and '$(_ReleaseBuildPublishDone)' != 'true'">
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+         Targets="Publish"
+         Properties="Configuration=$(Configuration);
+               RuntimeIdentifier=$(RuntimeIdentifier);
+               PublishSingleFile=$(PublishSingleFile);
+               PublishSelfContained=$(PublishSelfContained);
+               SelfContained=$(SelfContained);
+               EnableCompressionInSingleFile=$(EnableCompressionInSingleFile);
+               NoBuild=true;
+               YMM4_PATH=$(YMM4_PATH);
+               _ReleaseBuildPublishDone=true" />
+  </Target>
 </Project>

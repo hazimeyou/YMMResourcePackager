@@ -1,6 +1,4 @@
-﻿using YmmpxLib;
-
-namespace YMMResourcePackagerPlugin.ViewModel
+﻿namespace YMMResourcePackagerPlugin.ViewModel
 {
     public class ToolViewModel : BaseViewModel
     {
@@ -157,14 +155,8 @@ namespace YMMResourcePackagerPlugin.ViewModel
                     continue;
 
                 object? value;
-                try
-                {
-                    value = prop.GetValue(obj);
-                }
-                catch
-                {
-                    continue;
-                }
+                try { value = prop.GetValue(obj); }
+                catch { continue; }
 
                 if (value is null)
                     continue;
@@ -190,20 +182,9 @@ namespace YMMResourcePackagerPlugin.ViewModel
             }
         }
 
-        private static bool LooksLikeYmmpPath(string path)
-        {
-            return path.EndsWith(".ymmp", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static string GetExcludePath()
-        {
-            return Path.Combine(PluginDirectory, "YMMResourcePackager", "exclude.json");
-        }
-
-        private static string GetPackagingOptionsPath()
-        {
-            return Path.Combine(PluginDirectory, "YMMResourcePackager", OptionsFileName);
-        }
+        private static bool LooksLikeYmmpPath(string path) => path.EndsWith(".ymmp", StringComparison.OrdinalIgnoreCase);
+        private static string GetExcludePath() => Path.Combine(PluginDirectory, "YMMResourcePackager", "exclude.json");
+        private static string GetPackagingOptionsPath() => Path.Combine(PluginDirectory, "YMMResourcePackager", OptionsFileName);
 
         private void LoadPackagingOptions()
         {
@@ -212,7 +193,6 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 var optionsPath = GetPackagingOptionsPath();
                 if (!File.Exists(optionsPath))
                     return;
-
                 var saved = JsonSerializer.Deserialize<PackagingOptionsState>(File.ReadAllText(optionsPath));
                 if (saved is not null)
                     _includeProjectUiSettings = saved.IncludeProjectUiSettings;
@@ -232,18 +212,11 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 if (!string.IsNullOrWhiteSpace(directory))
                     Directory.CreateDirectory(directory);
 
-                var state = new PackagingOptionsState
-                {
-                    IncludeProjectUiSettings = IncludeProjectUiSettings
-                };
-
-                File.WriteAllText(
-                    optionsPath,
-                    JsonSerializer.Serialize(state, WriteIndentedJsonOptions));
+                var state = new PackagingOptionsState { IncludeProjectUiSettings = IncludeProjectUiSettings };
+                File.WriteAllText(optionsPath, JsonSerializer.Serialize(state, WriteIndentedJsonOptions));
             }
             catch
             {
-                // Ignore persistence failures and keep current in-memory setting.
             }
         }
 
@@ -253,14 +226,8 @@ namespace YMMResourcePackagerPlugin.ViewModel
             if (!File.Exists(excludePath))
                 return [];
 
-            try
-            {
-                return JsonSerializer.Deserialize<List<ExcludeItem>>(File.ReadAllText(excludePath)) ?? [];
-            }
-            catch (JsonException)
-            {
-                return [];
-            }
+            try { return JsonSerializer.Deserialize<List<ExcludeItem>>(File.ReadAllText(excludePath)) ?? []; }
+            catch (JsonException) { return []; }
         }
 
         private static HashSet<string> LoadExcludedFiles()
@@ -284,8 +251,8 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 string jsonText = File.ReadAllText(SelectedProject);
                 using JsonDocument doc = JsonDocument.Parse(jsonText);
 
-                var allFiles = YmmpxProjectJson.FindFilePaths(doc.RootElement)
-                    .Distinct()
+                var allFiles = FindFilePaths(doc.RootElement)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
                     .Select(f => new ExcludeItem { FilePath = f, IsExcluded = false })
                     .ToList();
 
@@ -305,17 +272,12 @@ namespace YMMResourcePackagerPlugin.ViewModel
                     }
                 }
 
-                var dlg = new ExcludeSettingWindow(allFiles)
-                {
-                    Owner = Application.Current.MainWindow
-                };
+                var dlg = new ExcludeSettingWindow(allFiles) { Owner = Application.Current.MainWindow };
                 if (dlg.ShowDialog() != true)
                     return;
 
                 Directory.CreateDirectory(Path.GetDirectoryName(excludePath)!);
-                File.WriteAllText(
-                    excludePath,
-                    JsonSerializer.Serialize(dlg.ExcludeItems, WriteIndentedJsonOptions));
+                File.WriteAllText(excludePath, JsonSerializer.Serialize(dlg.ExcludeItems, WriteIndentedJsonOptions));
             }
             catch (Exception ex)
             {
@@ -325,12 +287,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
 
         private void OpenProjectDialog()
         {
-            var dlg = new OpenFileDialog
-            {
-                Filter = "YMMプロジェクト (*.ymmp)|*.ymmp",
-                Title = "プロジェクトを選択"
-            };
-
+            var dlg = new OpenFileDialog { Filter = "YMMプロジェクト (*.ymmp)|*.ymmp", Title = "プロジェクトを選択" };
             if (dlg.ShowDialog() == true)
             {
                 SelectedProject = dlg.FileName;
@@ -344,19 +301,13 @@ namespace YMMResourcePackagerPlugin.ViewModel
             try
             {
                 string appExe = Path.Combine(PluginDirectory, "YMMResourcePackager", "YMMResourceUnpackerApp.exe");
-
                 if (!File.Exists(appExe))
                 {
                     MessageBox.Show($"アプリが見つかりません:\n{appExe}", "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
 
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = appExe,
-                    Arguments = "--associate",
-                    UseShellExecute = true
-                });
+                Process.Start(new ProcessStartInfo { FileName = appExe, Arguments = "--associate", UseShellExecute = true });
             }
             catch (Exception ex)
             {
@@ -371,19 +322,11 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 var noticesPath = Path.Combine(PluginDirectory, "YMMResourcePackager", ThirdPartyNoticesFileName);
                 if (!File.Exists(noticesPath))
                 {
-                    MessageBox.Show(
-                        $"ライセンス情報ファイルが見つかりません:\n{noticesPath}",
-                        "ライセンス",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
+                    MessageBox.Show($"ライセンス情報ファイルが見つかりません:\n{noticesPath}", "ライセンス", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = noticesPath,
-                    UseShellExecute = true
-                });
+                Process.Start(new ProcessStartInfo { FileName = noticesPath, UseShellExecute = true });
             }
             catch (Exception ex)
             {
@@ -399,7 +342,6 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 return;
             }
 
-            string? temporaryOutputPath = null;
             try
             {
                 Status = "素材同梱を開始します...";
@@ -408,16 +350,10 @@ namespace YMMResourcePackagerPlugin.ViewModel
                 string baseDir = Path.GetDirectoryName(SelectedProject)!;
                 string projectName = Path.GetFileNameWithoutExtension(SelectedProject);
                 string outputPath = Path.Combine(baseDir, $"{projectName}.ymmpx");
-                bool overwriteExistingFile = false;
 
                 if (File.Exists(outputPath))
                 {
-                    var r = MessageBox.Show(
-                        "出力先に同名ファイルがあります。上書きしますか？",
-                        "確認",
-                        MessageBoxButton.YesNoCancel,
-                        MessageBoxImage.Warning);
-
+                    var r = MessageBox.Show("出力先に同名ファイルがあります。上書きしますか？", "確認", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
                     if (r == MessageBoxResult.Cancel)
                     {
                         Status = "キャンセルされました。";
@@ -425,87 +361,125 @@ namespace YMMResourcePackagerPlugin.ViewModel
                     }
                     if (r == MessageBoxResult.No)
                     {
-                        outputPath = YmmpxPackageService.GetAvailableFilePath(outputPath);
+                        outputPath = GetAvailableFilePath(outputPath);
                     }
                     else
                     {
-                        overwriteExistingFile = true;
-                        temporaryOutputPath = GetTemporaryOutputPath(outputPath);
+                        File.Delete(outputPath);
                     }
                 }
 
-                var excludedFiles = LoadExcludedFiles();
-                var progressReporter = new Progress<YmmpxPackagingProgress>(p =>
-                {
-                    Progress = p.Percentage;
-                    Status = $"ZIP作成中... {p.CompletedCount}/{p.TotalCount}";
-                });
-
-                var packageResult = await YmmpxPackageService.CreatePackageAsync(
+                var excludedFiles = LoadExcludedFiles().ToArray();
+                await InvokeFeaturePackAsync(
                     SelectedProject,
-                    temporaryOutputPath ?? outputPath,
+                    outputPath,
                     excludedFiles,
-                    new YmmpxPackagingOptions
+                    IncludeProjectUiSettings,
+                    (message, percentage, processedBytes, totalBytes) =>
                     {
-                        IncludeProjectUiSettings = IncludeProjectUiSettings
-                    },
-                    progressReporter);
-
-                if (overwriteExistingFile && !string.IsNullOrWhiteSpace(temporaryOutputPath))
-                {
-                    File.Move(temporaryOutputPath, outputPath, true);
-                    temporaryOutputPath = null;
-                }
+                        Progress = Math.Clamp(percentage, 0, 100);
+                        Status = totalBytes > 0
+                            ? $"{message} {FormatBytes(processedBytes)}/{FormatBytes(totalBytes)} ({Progress:F1}%)"
+                            : message;
+                    });
 
                 Progress = 100;
-                Status = $"完了: {outputPath} (素材 {packageResult.ResourceCount} 件)";
-
-                MessageBox.Show(
-                    $"パッケージ化が完了しました。\n素材同梱数: {packageResult.ResourceCount} 件\n\n{outputPath}",
-                    "完了",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                Status = $"完了: {outputPath}";
+                MessageBox.Show($"パッケージ化が完了しました。\n\n{outputPath}", "完了", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
                 Status = $"エラー: {ex.Message}";
                 Progress = 0;
-
-                MessageBox.Show(
-                    ex.Message,
-                    "エラー",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            finally
+        }
+
+        private static async Task InvokeFeaturePackAsync(
+            string projectPath,
+            string outputPath,
+            string[] excludedFiles,
+            bool includeProjectUiSettings,
+            Action<string, double, long, long> progress)
+        {
+            var featurePath = Path.Combine(AppDirectories.PluginDirectory, "YMMResourcePackager", "YMMResourcePackager.Features.dll");
+            if (!File.Exists(featurePath))
+                throw new FileNotFoundException("Features DLL が見つかりません。", featurePath);
+
+            var assembly = System.Reflection.Assembly.LoadFrom(featurePath);
+            var type = assembly.GetType("YMMResourcePackager.Features.EntryPoint")
+                ?? throw new InvalidOperationException("Features EntryPoint が見つかりません。");
+            var method = type.GetMethod("RunPackAsync", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                ?? throw new InvalidOperationException("RunPackAsync メソッドが見つかりません。");
+
+            var callback = new Action<string, double, long, long>((message, percentage, processedBytes, totalBytes) =>
             {
-                if (!string.IsNullOrWhiteSpace(temporaryOutputPath) && File.Exists(temporaryOutputPath))
+                Application.Current.Dispatcher.Invoke(() => progress(message, percentage, processedBytes, totalBytes));
+            });
+
+            var taskObj = method.Invoke(null, [projectPath, outputPath, excludedFiles, includeProjectUiSettings, callback]);
+            if (taskObj is not Task task)
+                throw new InvalidOperationException("RunPackAsync の戻り値が Task ではありません。");
+            await task;
+        }
+
+        private static string GetAvailableFilePath(string path)
+        {
+            var dir = Path.GetDirectoryName(path) ?? string.Empty;
+            var name = Path.GetFileNameWithoutExtension(path);
+            var ext = Path.GetExtension(path);
+            var candidate = path;
+            var i = 1;
+            while (File.Exists(candidate))
+            {
+                candidate = Path.Combine(dir, $"{name}_{i++}{ext}");
+            }
+            return candidate;
+        }
+
+        private static IEnumerable<string> FindFilePaths(JsonElement root)
+        {
+            var stack = new Stack<JsonElement>();
+            stack.Push(root);
+            while (stack.Count > 0)
+            {
+                var element = stack.Pop();
+                switch (element.ValueKind)
                 {
-                    try
-                    {
-                        File.Delete(temporaryOutputPath);
-                    }
-                    catch
-                    {
-                        // Temporary file cleanup failure is non-fatal.
-                    }
+                    case JsonValueKind.Object:
+                        foreach (var prop in element.EnumerateObject())
+                        {
+                            if (prop.NameEquals("FilePath") && prop.Value.ValueKind == JsonValueKind.String)
+                            {
+                                var path = prop.Value.GetString();
+                                if (!string.IsNullOrWhiteSpace(path))
+                                    yield return path;
+                            }
+                            else
+                            {
+                                stack.Push(prop.Value);
+                            }
+                        }
+                        break;
+                    case JsonValueKind.Array:
+                        foreach (var child in element.EnumerateArray())
+                            stack.Push(child);
+                        break;
                 }
             }
         }
 
-        private static string GetTemporaryOutputPath(string outputPath)
+        private static string FormatBytes(long bytes)
         {
-            var directory = Path.GetDirectoryName(outputPath) ?? string.Empty;
-            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(outputPath);
-            var extension = Path.GetExtension(outputPath);
-
-            var temporaryPath = Path.Combine(directory, $"{fileNameWithoutExtension}.{Guid.NewGuid():N}.tmp{extension}");
-            while (File.Exists(temporaryPath))
+            string[] units = ["B", "KB", "MB", "GB", "TB"];
+            double size = bytes;
+            int unit = 0;
+            while (size >= 1024 && unit < units.Length - 1)
             {
-                temporaryPath = Path.Combine(directory, $"{fileNameWithoutExtension}.{Guid.NewGuid():N}.tmp{extension}");
+                size /= 1024;
+                unit++;
             }
-
-            return temporaryPath;
+            return $"{size:0.##}{units[unit]}";
         }
 
         private sealed class PackagingOptionsState
@@ -514,5 +488,3 @@ namespace YMMResourcePackagerPlugin.ViewModel
         }
     }
 }
-
-
