@@ -14,8 +14,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
@@ -28,11 +26,16 @@ jobs:
           $version = "${{ github.ref_name }}".TrimStart('v')
           echo "VERSION=$version" >> $env:GITHUB_ENV
 
+      - name: Fetch YMM4 Build Libraries
+        shell: pwsh
+        run: |
+          ./scripts/fetch-ymm4-libs.ps1 -OutputDir "libs/YMM4"
+
       - name: Build
-        run: dotnet build .\YMMResourceUnpackerApp.sln -c Release -p:Version=$env:VERSION
+        run: dotnet build .\YMMResourceUnpackerApp.sln -c Release -p:Version=$env:VERSION -p:YMM4_PATH="${{ github.workspace }}\libs\YMM4"
 
       - name: Publish
-        run: dotnet publish .\YMMResourceUnpackerApp\YMMResourceUnpackerApp.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o publish
+        run: dotnet publish .\YMMResourceUnpackerApp\YMMResourceUnpackerApp.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:YMM4_PATH="${{ github.workspace }}\libs\YMM4" -o publish
 
       - name: Copy LICENSE
         run: Copy-Item "LICENSE" "publish\LICENSE"
@@ -46,7 +49,12 @@ jobs:
           $pluginBin = "YMMResourcePackager\bin\Release\net10.0-windows"
           $requiredFiles = @(
             "YMMResourcePackager.dll",
-            "YMMResourcePackager.deps.json"
+            "YMMResourcePackager.deps.json",
+            "YMMResourcePackager.Features.dll",
+            "YMMResourcePackager.Shared.dll",
+            "YMMResourceUnpackerApp.exe",
+            "YMMResourceUnpackerApp.dll",
+            "YMMResourceUnpackerApp.runtimeconfig.json"
           )
 
           foreach ($file in $requiredFiles) {
@@ -56,20 +64,6 @@ jobs:
             }
             Copy-Item $src "publish\$file" -Force
           }
-
-          $ymmpxLibCandidates = @(
-            "YMMResourcePackager.YmmpxLib.dll",
-            "YMMPXLib.dll"
-          )
-          $ymmpxLib = $ymmpxLibCandidates |
-            ForEach-Object { Join-Path $pluginBin $_ } |
-            Where-Object { Test-Path $_ } |
-            Select-Object -First 1
-
-          if (-not $ymmpxLib) {
-            throw "Required YMMPX library was not found in $pluginBin"
-          }
-          Copy-Item $ymmpxLib (Join-Path "publish" (Split-Path $ymmpxLib -Leaf)) -Force
 
           $pdb = Join-Path $pluginBin "YMMResourcePackager.pdb"
           if (Test-Path $pdb) {
