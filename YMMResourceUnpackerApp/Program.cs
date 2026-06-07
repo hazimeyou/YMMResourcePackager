@@ -58,6 +58,10 @@ namespace YMMResourceUnpackerApp
                 return;
             }
 
+            var baseName = Path.GetFileNameWithoutExtension(ymmpxPath);
+            if (string.IsNullOrWhiteSpace(baseName))
+                baseName = "unpacked_ymmpx";
+
             var appDir = AppDomain.CurrentDomain.BaseDirectory;
             var suffixToRemove = @"user\plugin\YMMResourcePackager\";
             var ymmRootDir = appDir;
@@ -68,11 +72,9 @@ namespace YMMResourceUnpackerApp
 
             var ymmExe = Path.GetFullPath(Path.Combine(ymmRootDir, "YukkuriMovieMaker.exe"));
 
-            var baseName = Path.GetFileNameWithoutExtension(ymmpxPath);
-            if (string.IsNullOrWhiteSpace(baseName))
-                baseName = "unpacked_ymmpx";
-
-            var desiredDir = Path.Combine(ResolveUnpackBaseDirectory(ymmpxPath, appDir), baseName);
+            var unpackBaseDir = ResolveUnpackBaseDirectory(ymmpxPath, appDir);
+            Directory.CreateDirectory(unpackBaseDir);
+            var desiredDir = Path.Combine(unpackBaseDir, baseName);
             var finalDir = service.GetAvailableDirectoryPath(desiredDir);
 
             try
@@ -130,26 +132,25 @@ namespace YMMResourceUnpackerApp
 
         private static string ResolveUnpackBaseDirectory(string ymmpxPath, string pluginDirectory)
         {
-            try
+            var settings = AppSettingsStore.Load();
+            var mode = settings.UnpackOutputMode;
+
+            if (string.Equals(mode, UnpackOutputModes.PluginFolder, StringComparison.Ordinal))
+                return pluginDirectory;
+
+            if (string.Equals(mode, UnpackOutputModes.YmmpxFolder, StringComparison.Ordinal))
+                return Path.GetDirectoryName(ymmpxPath) ?? pluginDirectory;
+
+            if (string.Equals(mode, UnpackOutputModes.CustomFolder, StringComparison.Ordinal))
             {
-                var settings = AppSettingsStore.Load();
-                var mode = settings.UnpackOutputMode;
+                var customDirectory = settings.CustomUnpackDirectory?.Trim();
+                if (string.IsNullOrWhiteSpace(customDirectory))
+                    throw new InvalidOperationException("展開先フォルダーが未設定です。");
 
-                if (string.Equals(mode, UnpackOutputModes.YmmpxFolder, StringComparison.Ordinal))
-                    return Path.GetDirectoryName(ymmpxPath) ?? pluginDirectory;
-
-                if (string.Equals(mode, UnpackOutputModes.CustomFolder, StringComparison.Ordinal))
-                {
-                    var customDirectory = settings.CustomUnpackDirectory?.Trim();
-                    if (!string.IsNullOrWhiteSpace(customDirectory))
-                        return Path.GetFullPath(customDirectory);
-                }
-            }
-            catch
-            {
+                return Path.GetFullPath(customDirectory);
             }
 
-            return pluginDirectory;
+            throw new InvalidOperationException($"不明な展開先モードです: {mode}");
         }
 
         private static string[] HandleLoggingSwitches(string[] args)

@@ -828,6 +828,7 @@
 
         private async Task<bool> TryInstallYmmpxLibPluginAsync()
         {
+            var ymmePath = CreateTemporaryYmmpxLibPackagePath();
             try
             {
                 var installerPath = Path.Combine(
@@ -846,7 +847,6 @@
                     return false;
                 }
 
-                var ymmePath = CreateTemporaryYmmpxLibPackagePath();
                 YMMResourcePackager.Shared.AppLogger.LogInfo("YmmpxLibPlugin download started.");
                 using var http = new System.Net.Http.HttpClient
                 {
@@ -862,15 +862,19 @@
                 }
                 YMMResourcePackager.Shared.AppLogger.LogInfo("YmmpxLibPlugin download completed.");
 
-                Process.Start(new ProcessStartInfo
+                using var process = Process.Start(new ProcessStartInfo
                 {
                     FileName = installerPath,
                     Arguments = $"\"{ymmePath}\"",
-                    UseShellExecute = true
+                    UseShellExecute = false,
+                    WorkingDirectory = Path.GetDirectoryName(installerPath) ?? AppDirectories.ResourceDirectory
                 });
-                YMMResourcePackager.Shared.AppLogger.LogInfo("Installer launched for YmmpxLibPlugin.");
+                if (process is null)
+                    throw new InvalidOperationException("Installer process could not be started.");
 
-                _ = TryDeleteTempFileLaterAsync(ymmePath);
+                YMMResourcePackager.Shared.AppLogger.LogInfo("Installer launched for YmmpxLibPlugin.");
+                await process.WaitForExitAsync();
+                YMMResourcePackager.Shared.AppLogger.LogInfo($"Installer exited with code {process.ExitCode}.");
                 return true;
             }
             catch (TaskCanceledException)
@@ -906,13 +910,16 @@
                     MessageBoxImage.Error);
                 return false;
             }
+            finally
+            {
+                DeleteTempFileQuietly(ymmePath);
+            }
         }
 
-        private static async Task TryDeleteTempFileLaterAsync(string path)
+        private static void DeleteTempFileQuietly(string path)
         {
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(5));
                 if (File.Exists(path))
                     File.Delete(path);
             }
