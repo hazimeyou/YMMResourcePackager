@@ -115,7 +115,7 @@
         public ICommand OpenExcludeSettingCommand { get; }
         public ICommand OpenLogFolderCommand { get; }
         public ICommand OpenLatestLogCommand { get; }
-        public ICommand ResetWarningPromptsCommand { get; }
+        public ICommand InstallYmmpxLibCommand { get; }
         public ICommand BrowseCustomUnpackDirectoryCommand { get; }
         public int DetectedMaterialCount
         {
@@ -149,7 +149,7 @@
             OpenExcludeSettingCommand = new RelayCommand(OpenExcludeSetting);
             OpenLogFolderCommand = new RelayCommand(OpenLogFolder);
             OpenLatestLogCommand = new RelayCommand(OpenLatestLog);
-            ResetWarningPromptsCommand = new RelayCommand(ResetWarningPrompts);
+            InstallYmmpxLibCommand = new AsyncRelayCommand(InstallYmmpxLibAsync, CanInstallYmmpxLib);
             BrowseCustomUnpackDirectoryCommand = new RelayCommand(BrowseCustomUnpackDirectory);
             YMMResourcePackager.Shared.AppLogger.LogInfo("ToolViewModel initialized.");
         }
@@ -277,6 +277,48 @@
             return (result, dialog.SuppressThisWarning);
         }
 
+        private bool CanInstallYmmpxLib() => true;
+
+        private async Task InstallYmmpxLibAsync()
+        {
+            try
+            {
+                if (IsYmmpxLibInstalled())
+                {
+                    MessageBox.Show(
+                        "YmmpxLibPlugin はすでにインストールされています。",
+                        "情報",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return;
+                }
+
+                var result = MessageBox.Show(
+                    "YmmpxLibPlugin をインストールしますか？",
+                    "YmmpxLib のインストール",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result != MessageBoxResult.Yes)
+                    return;
+
+                var installed = await TryInstallYmmpxLibPluginAsync();
+                if (installed)
+                {
+                    MessageBox.Show(
+                        "YmmpxLibPlugin のインストーラーを起動しました。",
+                        "再起動が必要です",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                YMMResourcePackager.Shared.AppLogger.LogException(ex, "Manual YmmpxLib install failed.");
+                MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void BrowseCustomUnpackDirectory()
         {
             try
@@ -323,31 +365,6 @@
                 YMMResourcePackager.Shared.UnpackOutputModes.CustomFolder => YMMResourcePackager.Shared.UnpackOutputModes.CustomFolder,
                 _ => YMMResourcePackager.Shared.UnpackOutputModes.PluginFolder
             };
-        }
-
-        private void ResetWarningPrompts()
-        {
-            try
-            {
-                var settings = YMMResourcePackager.Shared.AppSettingsStore.Load();
-                settings.SuppressLegacyYmmpxLibFolderWarning = false;
-                settings.SuppressYmmpxLibInstallPrompt = false;
-                YMMResourcePackager.Shared.AppSettingsStore.Save(settings);
-
-                Status = "警告を再表示する設定に戻しました。";
-                YMMResourcePackager.Shared.AppLogger.LogInfo("Warning prompts reset by user.");
-
-                MessageBox.Show(
-                    "警告の非表示設定を解除しました。\n次回から両方の警告が再表示されます。",
-                    "警告を再表示する",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                YMMResourcePackager.Shared.AppLogger.LogException(ex, "Reset warning prompts failed.");
-                MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
         }
 
         private bool CanPackageProject()
