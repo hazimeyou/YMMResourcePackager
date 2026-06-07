@@ -72,7 +72,7 @@ namespace YMMResourceUnpackerApp
             if (string.IsNullOrWhiteSpace(baseName))
                 baseName = "unpacked_ymmpx";
 
-            var desiredDir = Path.Combine(appDir, baseName);
+            var desiredDir = Path.Combine(ResolveUnpackBaseDirectory(ymmpxPath, appDir), baseName);
             var finalDir = service.GetAvailableDirectoryPath(desiredDir);
 
             try
@@ -126,6 +126,30 @@ namespace YMMResourceUnpackerApp
             Console.WriteLine("YMM の起動先が見つかりませんでした。");
             Console.WriteLine("Enterキーで終了します...");
             Console.ReadLine();
+        }
+
+        private static string ResolveUnpackBaseDirectory(string ymmpxPath, string pluginDirectory)
+        {
+            try
+            {
+                var settings = AppSettingsStore.Load();
+                var mode = settings.UnpackOutputMode;
+
+                if (string.Equals(mode, UnpackOutputModes.YmmpxFolder, StringComparison.Ordinal))
+                    return Path.GetDirectoryName(ymmpxPath) ?? pluginDirectory;
+
+                if (string.Equals(mode, UnpackOutputModes.CustomFolder, StringComparison.Ordinal))
+                {
+                    var customDirectory = settings.CustomUnpackDirectory?.Trim();
+                    if (!string.IsNullOrWhiteSpace(customDirectory))
+                        return Path.GetFullPath(customDirectory);
+                }
+            }
+            catch
+            {
+            }
+
+            return pluginDirectory;
         }
 
         private static string[] HandleLoggingSwitches(string[] args)

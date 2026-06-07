@@ -4,28 +4,50 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             Height="350" Width="400">
+             Height="470" Width="420">
     <StackPanel Margin="10" VerticalAlignment="Top">
         <TextBlock Text="素材同梱プラグイン" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
         <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-            <Button Content="プロジェクトを選択" Command="{Binding SelectProjectCommand}" Margin="0,0,5,0"/>
-            <Button Content="開いているプロジェクトを使用" Command="{Binding UseOpenedProjectCommand}"/>
+            <Button Content="ファイルから選択" Command="{Binding SelectProjectCommand}" Margin="0,0,5,0"/>
+            <Button Content="現在開いているプロジェクトを使用" Command="{Binding UseOpenedProjectCommand}"/>
         </StackPanel>
         <TextBox Text="{Binding SelectedProject}" IsReadOnly="True" Margin="0,0,0,10"/>
         <CheckBox Content="ログを有効化"
                   IsChecked="{Binding EnableLogging}"
                   Margin="0,0,0,8"/>
-        <Button Content="パッケージ化" Command="{Binding PackageCommand}" Margin="0,0,0,5"/>
-        <Button Content="除外設定" Command="{Binding OpenExcludeSettingCommand}" Margin="0,0,0,5"/>
+        <Button Content="素材をパッケージ化 (.ymmpx 作成)" Command="{Binding PackageCommand}" Margin="0,0,0,5"/>
+        <Button Content="除外素材を設定" Command="{Binding OpenExcludeSettingCommand}" Margin="0,0,0,5"/>
         <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Height="20" Margin="0,5,0,0"/>
-        <Button Content=".ymmpx の関連付け" Command="{Binding AssociateYmmpxCommand}" Margin="0,0,0,5"/>
+        <Button Content=".ymmpx 関連付けを設定" Command="{Binding AssociateYmmpxCommand}" Margin="0,0,0,5"/>
         <CheckBox Content="プロジェクトUI設定を含める (LayoutXml / ToolStates)"
                   IsChecked="{Binding IncludeProjectUiSettings}"
                   />
+        <TextBlock Text=".ymmpx 展開先" Margin="0,8,0,2"/>
+        <ComboBox ItemsSource="{Binding UnpackOutputOptions}"
+                  DisplayMemberPath="Label"
+                  SelectedValuePath="Value"
+                  SelectedValue="{Binding SelectedUnpackOutputMode}"
+                  Margin="0,0,0,5"/>
+        <DockPanel Margin="0,0,0,5">
+            <Button Content="参照"
+                    Command="{Binding BrowseCustomUnpackDirectoryCommand}"
+                    IsEnabled="{Binding IsCustomUnpackDirectoryEnabled}"
+                    DockPanel.Dock="Right"
+                    Margin="5,0,0,0"/>
+            <TextBox Text="{Binding CustomUnpackDirectory}"
+                     IsEnabled="{Binding IsCustomUnpackDirectoryEnabled}"/>
+        </DockPanel>
         <StackPanel Orientation="Horizontal">
             <Button Content="ログフォルダを開く" Command="{Binding OpenLogFolderCommand}" Margin="0,0,5,0"/>
             <Button Content="最新ログを開く" Command="{Binding OpenLatestLogCommand}"/>
         </StackPanel>
+        <Button Content="警告を再表示する"
+                Command="{Binding ResetWarningPromptsCommand}"
+                Margin="0,8,0,0"/>
+        <TextBlock Margin="0,8,0,0"
+                   Text="{Binding DetectedMaterialCount, StringFormat=検出素材数: {0}}"/>
+        <TextBlock Text="{Binding ExcludedMaterialCount, StringFormat=除外数: {0}}"/>
+        <TextBlock Text="{Binding MissingMaterialCount, StringFormat=見つからない素材数: {0}}"/>
         <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Margin="0,10,0,0"/>
     </StackPanel>
 </UserControl>

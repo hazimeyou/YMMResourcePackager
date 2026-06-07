@@ -6,6 +6,7 @@ public static class AppPaths
 
     public static string SettingsPath => Path.Combine(BaseDirectory, "settings.json");
     public static string LogsDirectory => Path.Combine(BaseDirectory, "logs");
+    public static string TempDirectory => Path.Combine(BaseDirectory, "temp");
 
     private static string ResolvePluginDirectory()
     {

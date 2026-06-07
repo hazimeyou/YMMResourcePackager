@@ -4,10 +4,23 @@
     {
         private const string OptionsFileName = "packaging_options.json";
         private const string YmmpxLibPluginDownloadUrl = "https://github.com/hazimeyou/YmmpxLib/releases/latest/download/YmmpxLibPlugin.ymme";
+        private const string LegacyYmmpxLibFolderName = "YmmpxLib";
         private static readonly JsonSerializerOptions WriteIndentedJsonOptions = new() { WriteIndented = true };
         private string? _selectedProject;
         private readonly AsyncRelayCommand _packageCommand;
         private bool _enableLogging;
+        private int _detectedMaterialCount;
+        private int _excludedMaterialCount;
+        private int _missingMaterialCount;
+        private bool _startupPrerequisitePromptHandled;
+        private string _selectedUnpackOutputMode = YMMResourcePackager.Shared.UnpackOutputModes.PluginFolder;
+        private string _customUnpackDirectory = string.Empty;
+        private static readonly UnpackOutputOption[] UnpackOutputOptionsInternal =
+        [
+            new("プラグインフォルダー", YMMResourcePackager.Shared.UnpackOutputModes.PluginFolder),
+            new(".ymmpx と同じフォルダー", YMMResourcePackager.Shared.UnpackOutputModes.YmmpxFolder),
+            new("指定フォルダー", YMMResourcePackager.Shared.UnpackOutputModes.CustomFolder)
+        ];
         public static string PluginDirectory => AppDirectories.PluginDirectory;
 
         public string? SelectedProject
@@ -65,6 +78,36 @@
             }
         }
 
+        public IEnumerable<UnpackOutputOption> UnpackOutputOptions => UnpackOutputOptionsInternal;
+
+        public string SelectedUnpackOutputMode
+        {
+            get => _selectedUnpackOutputMode;
+            set
+            {
+                if (!SetProperty(ref _selectedUnpackOutputMode, NormalizeUnpackOutputMode(value)))
+                    return;
+
+                OnPropertyChanged(nameof(IsCustomUnpackDirectoryEnabled));
+                SaveUnpackOutputSettings();
+            }
+        }
+
+        public string CustomUnpackDirectory
+        {
+            get => _customUnpackDirectory;
+            set
+            {
+                if (!SetProperty(ref _customUnpackDirectory, value))
+                    return;
+
+                SaveUnpackOutputSettings();
+            }
+        }
+
+        public bool IsCustomUnpackDirectoryEnabled =>
+            string.Equals(SelectedUnpackOutputMode, YMMResourcePackager.Shared.UnpackOutputModes.CustomFolder, StringComparison.Ordinal);
+
         public ICommand PackageCommand => _packageCommand;
         public ICommand SelectProjectCommand { get; }
         public ICommand UseOpenedProjectCommand { get; }
@@ -72,11 +115,33 @@
         public ICommand OpenExcludeSettingCommand { get; }
         public ICommand OpenLogFolderCommand { get; }
         public ICommand OpenLatestLogCommand { get; }
+        public ICommand ResetWarningPromptsCommand { get; }
+        public ICommand BrowseCustomUnpackDirectoryCommand { get; }
+        public int DetectedMaterialCount
+        {
+            get => _detectedMaterialCount;
+            set => SetProperty(ref _detectedMaterialCount, value);
+        }
+
+        public int ExcludedMaterialCount
+        {
+            get => _excludedMaterialCount;
+            set => SetProperty(ref _excludedMaterialCount, value);
+        }
+
+        public int MissingMaterialCount
+        {
+            get => _missingMaterialCount;
+            set => SetProperty(ref _missingMaterialCount, value);
+        }
 
         public ToolViewModel()
         {
+            var settings = YMMResourcePackager.Shared.AppSettingsStore.Load();
             LoadPackagingOptions();
-            _enableLogging = YMMResourcePackager.Shared.AppSettingsStore.Load().EnableLogging;
+            _enableLogging = settings.EnableLogging;
+            _selectedUnpackOutputMode = NormalizeUnpackOutputMode(settings.UnpackOutputMode);
+            _customUnpackDirectory = settings.CustomUnpackDirectory ?? string.Empty;
             _packageCommand = new AsyncRelayCommand(PackageProjectAsync, CanPackageProject);
             SelectProjectCommand = new RelayCommand(OpenProjectDialog);
             UseOpenedProjectCommand = new RelayCommand(UseOpenedProject);
@@ -84,7 +149,205 @@
             OpenExcludeSettingCommand = new RelayCommand(OpenExcludeSetting);
             OpenLogFolderCommand = new RelayCommand(OpenLogFolder);
             OpenLatestLogCommand = new RelayCommand(OpenLatestLog);
+            ResetWarningPromptsCommand = new RelayCommand(ResetWarningPrompts);
+            BrowseCustomUnpackDirectoryCommand = new RelayCommand(BrowseCustomUnpackDirectory);
             YMMResourcePackager.Shared.AppLogger.LogInfo("ToolViewModel initialized.");
+        }
+
+        public async Task InitializeAsync()
+        {
+            if (_startupPrerequisitePromptHandled)
+                return;
+
+            _startupPrerequisitePromptHandled = true;
+
+            try
+            {
+                if (PromptRemoveLegacyYmmpxLibFolderIfNeeded())
+                {
+                    Status = "古い YmmpxLib フォルダーを削除して、YMM を再起動してください。";
+                    YMMResourcePackager.Shared.AppLogger.LogInfo("Legacy YmmpxLib folder prompt shown on startup.");
+                    return;
+                }
+
+                if (IsYmmpxLibInstalled())
+                    return;
+
+                var prompt = ShowWarningPrompt(
+                    windowTitle: "前提プラグインの確認",
+                    message: "YmmpxLibPlugin が見つかりません。\n今すぐダウンロードしてインストールしますか？",
+                    yesButtonText: "ダウンロード",
+                    noButtonText: "後で",
+                    suppressSettingSelector: s => s.SuppressYmmpxLibInstallPrompt,
+                    suppressSettingApplier: (s, value) => s.SuppressYmmpxLibInstallPrompt = value);
+
+                if (!prompt.confirmed)
+                {
+                    Status = "YmmpxLibPlugin は未導入です。必要になったときにパッケージ化から導入できます。";
+                    YMMResourcePackager.Shared.AppLogger.LogInfo("YmmpxLibPlugin download prompt declined on startup.");
+                    return;
+                }
+
+                var installed = await TryInstallYmmpxLibPluginAsync();
+                if (installed)
+                {
+                    Status = "前提プラグインを起動しました。インストーラに沿ってください。再起動が必要です。";
+                    MessageBox.Show(
+                        "前提プラグインを起動しました。インストーラに沿ってください。",
+                        "再起動が必要です",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                YMMResourcePackager.Shared.AppLogger.LogException(ex, "Startup YmmpxLibPlugin prompt failed.");
+                Status = $"前提プラグイン確認でエラー: {ex.Message}";
+            }
+        }
+
+        private bool PromptRemoveLegacyYmmpxLibFolderIfNeeded()
+        {
+            try
+            {
+                var legacyPath = GetLegacyYmmpxLibFolderPath();
+                if (!Directory.Exists(legacyPath))
+                    return false;
+
+                var settings = YMMResourcePackager.Shared.AppSettingsStore.Load();
+                if (settings.SuppressLegacyYmmpxLibFolderWarning)
+                    return false;
+
+                var prompt = ShowWarningPrompt(
+                    windowTitle: "YmmpxLib フォルダーを削除してください",
+                    message: "プラグイン DLL と同じフォルダーに旧 YmmpxLib フォルダーが残っています。\nこのフォルダーを先に削除してください。\n削除後は YMM を再起動してください。\n\n「はい」でフォルダーを開きます。",
+                    yesButtonText: "フォルダーを開く",
+                    noButtonText: "閉じる",
+                    suppressSettingSelector: s => s.SuppressLegacyYmmpxLibFolderWarning,
+                    suppressSettingApplier: (s, value) => s.SuppressLegacyYmmpxLibFolderWarning = value);
+
+                if (prompt.confirmed)
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "explorer.exe",
+                        Arguments = $"\"{legacyPath}\"",
+                        UseShellExecute = true
+                    });
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                YMMResourcePackager.Shared.AppLogger.LogException(ex, "Legacy YmmpxLib folder prompt failed.");
+                return false;
+            }
+        }
+
+        private static (bool confirmed, bool suppress) ShowWarningPrompt(
+            string windowTitle,
+            string message,
+            string yesButtonText,
+            string noButtonText,
+            Func<YMMResourcePackager.Shared.AppLoggingSettings, bool> suppressSettingSelector,
+            Action<YMMResourcePackager.Shared.AppLoggingSettings, bool> suppressSettingApplier)
+        {
+            var settings = YMMResourcePackager.Shared.AppSettingsStore.Load();
+
+            if (suppressSettingSelector(settings))
+                return (false, false);
+
+            var dialog = new WarningPromptWindow
+            {
+                Owner = Application.Current.MainWindow,
+                WindowTitle = windowTitle,
+                Message = message,
+                YesButtonText = yesButtonText,
+                NoButtonText = noButtonText
+            };
+
+            var result = dialog.ShowDialog() == true;
+            if (dialog.SuppressThisWarning)
+            {
+                suppressSettingApplier(settings, true);
+                YMMResourcePackager.Shared.AppSettingsStore.Save(settings);
+            }
+
+            return (result, dialog.SuppressThisWarning);
+        }
+
+        private void BrowseCustomUnpackDirectory()
+        {
+            try
+            {
+                var dialog = new OpenFolderDialog
+                {
+                    Title = "展開先フォルダーを選択",
+                    Multiselect = false
+                };
+
+                if (!string.IsNullOrWhiteSpace(CustomUnpackDirectory) && Directory.Exists(CustomUnpackDirectory))
+                    dialog.InitialDirectory = CustomUnpackDirectory;
+
+                if (dialog.ShowDialog() == true)
+                    CustomUnpackDirectory = dialog.FolderName;
+            }
+            catch (Exception ex)
+            {
+                YMMResourcePackager.Shared.AppLogger.LogException(ex, "Browse custom unpack directory failed.");
+                MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void SaveUnpackOutputSettings()
+        {
+            try
+            {
+                var settings = YMMResourcePackager.Shared.AppSettingsStore.Load();
+                settings.UnpackOutputMode = NormalizeUnpackOutputMode(SelectedUnpackOutputMode);
+                settings.CustomUnpackDirectory = CustomUnpackDirectory?.Trim() ?? string.Empty;
+                YMMResourcePackager.Shared.AppSettingsStore.Save(settings);
+            }
+            catch
+            {
+            }
+        }
+
+        private static string NormalizeUnpackOutputMode(string? mode)
+        {
+            return mode switch
+            {
+                YMMResourcePackager.Shared.UnpackOutputModes.PluginFolder => YMMResourcePackager.Shared.UnpackOutputModes.PluginFolder,
+                YMMResourcePackager.Shared.UnpackOutputModes.YmmpxFolder => YMMResourcePackager.Shared.UnpackOutputModes.YmmpxFolder,
+                YMMResourcePackager.Shared.UnpackOutputModes.CustomFolder => YMMResourcePackager.Shared.UnpackOutputModes.CustomFolder,
+                _ => YMMResourcePackager.Shared.UnpackOutputModes.PluginFolder
+            };
+        }
+
+        private void ResetWarningPrompts()
+        {
+            try
+            {
+                var settings = YMMResourcePackager.Shared.AppSettingsStore.Load();
+                settings.SuppressLegacyYmmpxLibFolderWarning = false;
+                settings.SuppressYmmpxLibInstallPrompt = false;
+                YMMResourcePackager.Shared.AppSettingsStore.Save(settings);
+
+                Status = "警告を再表示する設定に戻しました。";
+                YMMResourcePackager.Shared.AppLogger.LogInfo("Warning prompts reset by user.");
+
+                MessageBox.Show(
+                    "警告の非表示設定を解除しました。\n次回から両方の警告が再表示されます。",
+                    "警告を再表示する",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                YMMResourcePackager.Shared.AppLogger.LogException(ex, "Reset warning prompts failed.");
+                MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private bool CanPackageProject()
@@ -273,7 +536,8 @@
 
             try
             {
-                string jsonText = File.ReadAllText(SelectedProject);
+                var projectPath = ExpandYmmpxIfNeeded(SelectedProject);
+                string jsonText = File.ReadAllText(projectPath);
                 using JsonDocument doc = JsonDocument.Parse(jsonText);
 
                 var allFiles = FindFilePaths(doc.RootElement)
@@ -372,7 +636,40 @@
                     return;
                 }
 
-                Process.Start(new ProcessStartInfo { FileName = appExe, Arguments = "--associate", UseShellExecute = true });
+                using var process = Process.Start(new ProcessStartInfo
+                {
+                    FileName = appExe,
+                    Arguments = "--associate",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                });
+                if (process is null)
+                {
+                    MessageBox.Show("関連付け設定ツールの起動に失敗しました。", "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                process.WaitForExit();
+                var output = process.StandardOutput.ReadToEnd();
+                var error = process.StandardError.ReadToEnd();
+                var details = string.IsNullOrWhiteSpace(output) ? error : output;
+                var hasFailureText = details.Contains("失敗", StringComparison.OrdinalIgnoreCase) ||
+                                     details.Contains("error", StringComparison.OrdinalIgnoreCase);
+
+                if (process.ExitCode == 0 && !hasFailureText)
+                {
+                    MessageBox.Show("`.ymmpx` の関連付けに成功しました。", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show(
+                        $"`.ymmpx` の関連付けに失敗しました。\n\n{details}".Trim(),
+                        "失敗",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
             }
             catch (Exception ex)
             {
@@ -388,9 +685,11 @@
                 return;
             }
 
+            string? outputPath = null;
             try
             {
                 YMMResourcePackager.Shared.AppLogger.LogInfo("Pack requested.");
+                SelectedProject = ExpandYmmpxIfNeeded(SelectedProject);
                 if (!IsYmmpxLibInstalled())
                 {
                     YMMResourcePackager.Shared.AppLogger.LogWarning("YmmpxLib not found. Starting prerequisite install flow.");
@@ -413,7 +712,26 @@
 
                 string baseDir = Path.GetDirectoryName(SelectedProject)!;
                 string projectName = Path.GetFileNameWithoutExtension(SelectedProject);
-                string outputPath = Path.Combine(baseDir, $"{projectName}.ymmpx");
+                outputPath = Path.Combine(baseDir, $"{projectName}.ymmpx");
+                var excludedFiles = LoadExcludedFiles().ToArray();
+                var validation = ValidateProjectBeforePack(SelectedProject, excludedFiles);
+                DetectedMaterialCount = validation.DetectedMaterialCount;
+                ExcludedMaterialCount = validation.ExcludedMaterialCount;
+                MissingMaterialCount = validation.MissingMaterialCount;
+
+                if (validation.MissingMaterialCount > 0)
+                {
+                    var proceed = MessageBox.Show(
+                        $"見つからない素材が {validation.MissingMaterialCount} 件あります。\nこのままパッケージ化を続行しますか？",
+                        "事前チェック",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Warning);
+                    if (proceed != MessageBoxResult.Yes)
+                    {
+                        Status = "事前チェックでキャンセルされました。";
+                        return;
+                    }
+                }
 
                 if (File.Exists(outputPath))
                 {
@@ -425,7 +743,7 @@
                     }
                     if (r == MessageBoxResult.No)
                     {
-                        outputPath = GetAvailableFilePath(outputPath);
+                        outputPath = GetStableAvailableFilePath(outputPath);
                     }
                     else
                     {
@@ -433,7 +751,6 @@
                     }
                 }
 
-                var excludedFiles = LoadExcludedFiles().ToArray();
                 await InvokeFeaturePackAsync(
                     SelectedProject,
                     outputPath,
@@ -450,10 +767,20 @@
                 Progress = 100;
                 Status = $"完了: {outputPath}";
                 YMMResourcePackager.Shared.AppLogger.LogInfo("Pack completed successfully.");
-                MessageBox.Show($"パッケージ化が完了しました。\n\n{outputPath}", "完了", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(
+                    $"パッケージ化が完了しました。\n\n出力: {outputPath}\n検出素材数: {DetectedMaterialCount}\n除外数: {ExcludedMaterialCount}\n見つからない素材数: {MissingMaterialCount}",
+                    "完了",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
+                if (!string.IsNullOrWhiteSpace(outputPath) && File.Exists(outputPath))
+                {
+                    try { File.Delete(outputPath); }
+                    catch { }
+                }
+
                 Status = $"エラー: {ex.Message}";
                 Progress = 0;
                 YMMResourcePackager.Shared.AppLogger.LogException(ex, "Pack failed.");
@@ -502,7 +829,7 @@
                     return false;
                 }
 
-                var ymmePath = Path.Combine(Path.GetTempPath(), "YmmpxLibPlugin.ymme");
+                var ymmePath = CreateTemporaryYmmpxLibPackagePath();
                 YMMResourcePackager.Shared.AppLogger.LogInfo("YmmpxLibPlugin download started.");
                 using var http = new System.Net.Http.HttpClient
                 {
@@ -577,6 +904,14 @@
             }
         }
 
+        private static string CreateTemporaryYmmpxLibPackagePath()
+        {
+            Directory.CreateDirectory(YMMResourcePackager.Shared.AppPaths.TempDirectory);
+            return Path.Combine(
+                YMMResourcePackager.Shared.AppPaths.TempDirectory,
+                $"YmmpxLibPlugin_{Guid.NewGuid():N}.ymme");
+        }
+
         private static async Task InvokeFeaturePackAsync(
             string projectPath,
             string outputPath,
@@ -605,18 +940,111 @@
             await task;
         }
 
-        private static string GetAvailableFilePath(string path)
+        private static string ExpandYmmpxIfNeeded(string path)
+        {
+            if (!path.EndsWith(".ymmpx", StringComparison.OrdinalIgnoreCase))
+                return path;
+
+            var extractedProjectPath = InvokeFeatureUnpack(path, out var replacedCount);
+            if (string.IsNullOrWhiteSpace(extractedProjectPath) || !File.Exists(extractedProjectPath))
+                throw new InvalidOperationException("`.ymmpx` の展開は完了しましたが、`.ymmp` が見つかりませんでした。");
+
+            MessageBox.Show(
+                $"`.ymmpx` を展開しました。\nリンク復元件数: {replacedCount}\n\n{extractedProjectPath}",
+                "展開完了",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return extractedProjectPath;
+        }
+
+        private static string InvokeFeatureUnpack(string ymmpxPath, out int replacedPathCount)
+        {
+            var featurePath = Path.Combine(AppDirectories.PluginDirectory, "YMMResourcePackager", "YMMResourcePackager.Features.dll");
+            if (!File.Exists(featurePath))
+                throw new FileNotFoundException("Features DLL が見つかりません。", featurePath);
+
+            var assembly = System.Reflection.Assembly.LoadFrom(featurePath);
+            var type = assembly.GetType("YMMResourcePackager.Features.EntryPoint")
+                ?? throw new InvalidOperationException("Features EntryPoint が見つかりません。");
+            var method = type.GetMethod("RunUnpack", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                ?? throw new InvalidOperationException("RunUnpack メソッドが見つかりません。");
+
+            object[] args = [ymmpxPath, Path.GetDirectoryName(ymmpxPath) ?? string.Empty, 0];
+            var projectPath = method.Invoke(null, args)?.ToString()
+                ?? throw new InvalidOperationException("展開後のプロジェクトパスが取得できません。");
+            replacedPathCount = args[2] is int i ? i : 0;
+            return projectPath;
+        }
+
+        private static string GetLegacyYmmpxLibFolderPath() =>
+            Path.Combine(AppDirectories.PluginDirectory, LegacyYmmpxLibFolderName);
+
+        private static PackagingValidationResult ValidateProjectBeforePack(string projectPath, string[] excludedFiles)
+        {
+            var excluded = excludedFiles
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var jsonText = File.ReadAllText(projectPath);
+            using JsonDocument doc = JsonDocument.Parse(jsonText);
+            var projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
+            var files = FindFilePaths(doc.RootElement)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var missingCount = 0;
+            foreach (var file in files)
+            {
+                if (excluded.Contains(file))
+                    continue;
+
+                var resolved = ResolveMaterialPath(file, projectDir);
+                if (resolved is null || !File.Exists(resolved))
+                    missingCount++;
+            }
+
+            return new PackagingValidationResult
+            {
+                DetectedMaterialCount = files.Length,
+                ExcludedMaterialCount = files.Count(x => excluded.Contains(x)),
+                MissingMaterialCount = missingCount
+            };
+        }
+
+        private static string? ResolveMaterialPath(string filePath, string projectDir)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                return null;
+
+            if (Uri.TryCreate(filePath, UriKind.Absolute, out var uri) && !uri.IsFile)
+                return null;
+
+            if (Path.IsPathRooted(filePath))
+                return Path.GetFullPath(filePath);
+
+            return Path.GetFullPath(Path.Combine(projectDir, filePath));
+        }
+
+        private static string GetStableAvailableFilePath(string path)
         {
             var dir = Path.GetDirectoryName(path) ?? string.Empty;
             var name = Path.GetFileNameWithoutExtension(path);
             var ext = Path.GetExtension(path);
-            var candidate = path;
-            var i = 1;
-            while (File.Exists(candidate))
+            var pattern = $"^{System.Text.RegularExpressions.Regex.Escape(name)}_(\\d{{3}}){System.Text.RegularExpressions.Regex.Escape(ext)}$";
+            var max = 0;
+
+            if (Directory.Exists(dir))
             {
-                candidate = Path.Combine(dir, $"{name}_{i++}{ext}");
+                foreach (var file in Directory.EnumerateFiles(dir, $"{name}_*{ext}"))
+                {
+                    var fileName = Path.GetFileName(file);
+                    var match = System.Text.RegularExpressions.Regex.Match(fileName, pattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+                    if (match.Success && int.TryParse(match.Groups[1].Value, out var n))
+                        max = Math.Max(max, n);
+                }
             }
-            return candidate;
+
+            return Path.Combine(dir, $"{name}_{max + 1:000}{ext}");
         }
 
         private static IEnumerable<string> FindFilePaths(JsonElement root)
@@ -667,6 +1095,25 @@
         private sealed class PackagingOptionsState
         {
             public bool IncludeProjectUiSettings { get; set; } = true;
+        }
+
+        private sealed class PackagingValidationResult
+        {
+            public int DetectedMaterialCount { get; set; }
+            public int ExcludedMaterialCount { get; set; }
+            public int MissingMaterialCount { get; set; }
+        }
+
+        public sealed class UnpackOutputOption
+        {
+            public UnpackOutputOption(string label, string value)
+            {
+                Label = label;
+                Value = value;
+            }
+
+            public string Label { get; }
+            public string Value { get; }
         }
     }
 }

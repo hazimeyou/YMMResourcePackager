@@ -20,7 +20,7 @@ global using YMMResourcePackagerPlugin.ViewModel;
 global using YMMResourcePackagerPlugin.View;
 namespace YMMResourcePackagerPlugin
 {
-    public class MyToolPlugin : IToolPlugin
+    public class YMMResourcePackagerPluginToolPlugin : IToolPlugin
     {
         public string Name => "素材同梱プラグイン";
         public Type ViewModelType => typeof(ToolViewModel);
