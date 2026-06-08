@@ -933,7 +933,7 @@
             Directory.CreateDirectory(YMMResourcePackager.Shared.AppPaths.TempDirectory);
             return Path.Combine(
                 YMMResourcePackager.Shared.AppPaths.TempDirectory,
-                $"YmmpxLibPlugin_{Guid.NewGuid():N}.ymme");
+                "YmmpxLibPlugin.ymme");
         }
 
         private static async Task InvokeFeaturePackAsync(

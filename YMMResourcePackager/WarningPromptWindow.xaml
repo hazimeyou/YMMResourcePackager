@@ -3,37 +3,43 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="{Binding WindowTitle}"
         Width="520"
-        Height="260"
-        ResizeMode="NoResize"
+        Height="320"
+        MinHeight="260"
+        MinWidth="360"
+        ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False">
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <Grid Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0"
-                   Text="{Binding Message}"
-                   TextWrapping="Wrap"
-                   VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="0"
+                       Text="{Binding Message}"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center"/>
 
-        <CheckBox Grid.Row="1"
-                  Content="今後この警告を表示しない"
-                  IsChecked="{Binding SuppressThisWarning}"
-                  Margin="0,12,0,12"/>
+            <CheckBox Grid.Row="1"
+                      Content="今後この警告を表示しない"
+                      IsChecked="{Binding SuppressThisWarning}"
+                      Margin="0,12,0,12"
+                      HorizontalAlignment="Left"/>
 
-        <StackPanel Grid.Row="2"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right">
-            <Button Content="{Binding YesButtonText}"
-                    MinWidth="90"
-                    Margin="0,0,8,0"
-                    Click="YesButton_Click"/>
-            <Button Content="{Binding NoButtonText}"
-                    MinWidth="90"
-                    Click="NoButton_Click"/>
-        </StackPanel>
-    </Grid>
+            <StackPanel Grid.Row="2"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right">
+                <Button Content="{Binding YesButtonText}"
+                        MinWidth="90"
+                        Margin="0,0,8,0"
+                        Click="YesButton_Click"/>
+                <Button Content="{Binding NoButtonText}"
+                        MinWidth="90"
+                        Click="NoButton_Click"/>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
 </Window>
