@@ -706,7 +706,14 @@
             try
             {
                 YMMResourcePackager.Shared.AppLogger.LogInfo("Pack requested.");
-                SelectedProject = ExpandYmmpxIfNeeded(SelectedProject);
+                if (SelectedProject.EndsWith(".ymmpx", StringComparison.OrdinalIgnoreCase))
+                {
+                    SelectedProject = ExpandYmmpxIfNeeded(SelectedProject);
+                    Status = $"展開しました: {SelectedProject}";
+                    YMMResourcePackager.Shared.AppLogger.LogInfo("Selected ymmpx was expanded instead of packaged.");
+                    return;
+                }
+
                 if (!IsYmmpxLibInstalled())
                 {
                     YMMResourcePackager.Shared.AppLogger.LogWarning("YmmpxLib not found. Starting prerequisite install flow.");

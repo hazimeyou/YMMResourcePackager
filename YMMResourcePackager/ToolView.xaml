@@ -36,7 +36,7 @@
                       IsChecked="{Binding IncludeProjectUiSettings}"
                       Margin="0,0,0,8"/>
 
-            <Button Content="素材をパッケージ化 (.ymmpx 作成)"
+            <Button Content="同梱 / 展開"
                     Command="{Binding PackageCommand}"
                     Margin="0,0,0,5"
                     HorizontalAlignment="Stretch"/>
