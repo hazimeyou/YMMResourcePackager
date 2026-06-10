@@ -13,10 +13,10 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: "10.0.x"
 
@@ -34,6 +34,9 @@ jobs:
       - name: Build
         run: dotnet build .\YMMResourceUnpackerApp.sln -c Release -p:Version=$env:VERSION -p:YMM4_PATH="${{ github.workspace }}\libs\YMM4"
 
+      - name: Test
+        run: dotnet test .\YMMResourceUnpackerApp.sln -c Release --no-build -p:YMM4_PATH="${{ github.workspace }}\libs\YMM4"
+
       - name: Publish
         run: dotnet publish .\YMMResourceUnpackerApp\YMMResourceUnpackerApp.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:YMM4_PATH="${{ github.workspace }}\libs\YMM4" -o publish
 
@@ -42,6 +45,9 @@ jobs:
 
       - name: Copy README
         run: Copy-Item ".github\assets\README.txt" "publish\readme.txt"
+
+      - name: Copy Third-Party Notices
+        run: Copy-Item "THIRD_PARTY_NOTICES.md" "publish\THIRD_PARTY_NOTICES.md"
 
       - name: Collect Plugin Files
         shell: pwsh
@@ -84,7 +90,7 @@ jobs:
         run: Move-Item "YMMResourcePackager.zip" "YMMResourcePackager.ymme"
 
       - name: Create Release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}

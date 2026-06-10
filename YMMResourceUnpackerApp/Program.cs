@@ -9,11 +9,11 @@ namespace YMMResourceUnpackerApp
 {
     class Program
     {
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
             var remainingArgs = HandleLoggingSwitches(args);
             if (remainingArgs.Length == 0 && args.Length > 0)
-                return;
+                return 1;
 
             AppLogger.LogInfo("Unpacker app started.");
             AppLogger.LogInfo($"Arguments: {string.Join(" ", remainingArgs.Select(SanitizeArg))}");
@@ -23,11 +23,10 @@ namespace YMMResourceUnpackerApp
                 if (!OperatingSystem.IsWindows())
                 {
                     Console.WriteLine("この機能は Windows でのみ利用できます。");
-                    return;
+                    return 1;
                 }
 
-                EnsureFileAssociation();
-                return;
+                return EnsureFileAssociation() ? 0 : 1;
             }
 
             Console.WriteLine("=== YMM Resource Unpacker ===");
@@ -45,7 +44,7 @@ namespace YMMResourceUnpackerApp
                 {
                     Console.WriteLine("ファイルが存在しません。終了します。");
                     AppLogger.LogWarning("Input ymmpx path is missing or invalid.");
-                    return;
+                    return 1;
                 }
 
                 ymmpxPath = input;
@@ -55,7 +54,7 @@ namespace YMMResourceUnpackerApp
             {
                 Console.WriteLine(serviceError);
                 AppLogger.LogError($"Feature service creation failed: {serviceError}");
-                return;
+                return 1;
             }
 
             var baseName = Path.GetFileNameWithoutExtension(ymmpxPath);
@@ -72,13 +71,12 @@ namespace YMMResourceUnpackerApp
 
             var ymmExe = Path.GetFullPath(Path.Combine(ymmRootDir, "YukkuriMovieMaker.exe"));
 
-            var unpackBaseDir = ResolveUnpackBaseDirectory(ymmpxPath, appDir);
-            Directory.CreateDirectory(unpackBaseDir);
-            var desiredDir = Path.Combine(unpackBaseDir, baseName);
-            var finalDir = service.GetAvailableDirectoryPath(desiredDir);
-
             try
             {
+                var unpackBaseDir = ResolveUnpackBaseDirectory(ymmpxPath, appDir);
+                Directory.CreateDirectory(unpackBaseDir);
+                var desiredDir = Path.Combine(unpackBaseDir, baseName);
+                var finalDir = service.GetAvailableDirectoryPath(desiredDir);
                 Console.WriteLine("展開中...");
                 AppLogger.LogInfo("Unpack started.");
                 var unpackResult = service.ExtractAndRestoreProject(ymmpxPath, finalDir);
@@ -86,16 +84,24 @@ namespace YMMResourceUnpackerApp
                 Console.WriteLine($"リンク復元完了: {unpackResult.ReplacedPathCount} 件");
                 AppLogger.LogInfo($"Unpack succeeded. ReplacedPathCount={unpackResult.ReplacedPathCount}");
 
-                LaunchProjectWithYmmPreferredPath(ymmpPath, ymmExe);
+                return LaunchProjectWithYmmPreferredPath(ymmpPath, ymmExe) ? 0 : 1;
             }
             catch (Exception ex)
             {
+                if (IsMissingYmmpxLibException(ex))
+                {
+                    AnnounceMissingYmmpxLib();
+                    AppLogger.LogWarning("YmmpxLib Shared Library is missing.");
+                    return 1;
+                }
+
                 Console.WriteLine($"エラー: {ex.Message}");
                 AppLogger.LogException(ex, "Unpack failed.");
+                return 1;
             }
         }
 
-        private static void LaunchProjectWithYmmPreferredPath(string ymmpPath, string fallbackYmmExePath)
+        private static bool LaunchProjectWithYmmPreferredPath(string ymmpPath, string fallbackYmmExePath)
         {
             try
             {
@@ -105,7 +111,7 @@ namespace YMMResourceUnpackerApp
                     UseShellExecute = true
                 });
                 AppLogger.LogInfo("Project launch requested via .ymmp association.");
-                return;
+                return true;
             }
             catch (Exception ex)
             {
@@ -121,23 +127,35 @@ namespace YMMResourceUnpackerApp
                     UseShellExecute = true
                 });
                 AppLogger.LogInfo("Project launch requested via direct YukkuriMovieMaker.exe path.");
-                return;
+                return true;
             }
 
             AppLogger.LogError("Project launch failed: association and direct YMM path are both unavailable.");
             Console.WriteLine("YMM の起動先が見つかりませんでした。");
             Console.WriteLine("Enterキーで終了します...");
             Console.ReadLine();
+            return false;
         }
 
         private static string ResolveUnpackBaseDirectory(string ymmpxPath, string pluginDirectory)
         {
             var settings = AppSettingsStore.Load();
-            return UnpackerArguments.ResolveUnpackBaseDirectory(
-                settings.UnpackOutputMode,
-                settings.CustomUnpackDirectory,
-                ymmpxPath,
-                pluginDirectory);
+            try
+            {
+                return UnpackerArguments.ResolveUnpackBaseDirectory(
+                    settings.UnpackOutputMode,
+                    settings.CustomUnpackDirectory,
+                    ymmpxPath,
+                    pluginDirectory);
+            }
+            catch (InvalidOperationException ex) when (
+                string.Equals(settings.UnpackOutputMode, UnpackOutputModes.CustomFolder, StringComparison.Ordinal) &&
+                string.IsNullOrWhiteSpace(settings.CustomUnpackDirectory))
+            {
+                Console.WriteLine("展開先フォルダーが未設定です。プラグインフォルダーに展開します。");
+                AppLogger.LogWarning($"Custom unpack directory was missing: {ex.Message}");
+                return pluginDirectory;
+            }
         }
 
         private static string[] HandleLoggingSwitches(string[] args)
@@ -228,7 +246,7 @@ namespace YMMResourceUnpackerApp
         }
 
         [SupportedOSPlatform("windows")]
-        static void EnsureFileAssociation()
+        static bool EnsureFileAssociation()
         {
             try
             {
@@ -257,12 +275,35 @@ namespace YMMResourceUnpackerApp
                 NotifyShellAssociationChanged();
                 Console.WriteLine(".ymmpx の関連付けが完了しました（ユーザー単位）。");
                 AppLogger.LogInfo("File association updated.");
+                return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"関連付けに失敗しました: {ex.Message}");
                 AppLogger.LogException(ex, "File association failed.");
+                return false;
             }
+        }
+
+        private static bool IsMissingYmmpxLibException(Exception ex)
+        {
+            for (var current = ex; current is not null; current = current.InnerException)
+            {
+                if (current is FileNotFoundException && current.Message.Contains("YmmpxLib.dll", StringComparison.OrdinalIgnoreCase))
+                    return true;
+
+                if (current.Message.Contains("YmmpxLib", StringComparison.OrdinalIgnoreCase) &&
+                    (current is TargetInvocationException || current is InvalidOperationException))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static void AnnounceMissingYmmpxLib()
+        {
+            Console.WriteLine("YmmpxLib Shared Library が見つかりません。");
+            Console.WriteLine("YmmpxLib Shared Library を追加してから再実行してください。");
         }
 
         [SupportedOSPlatform("windows")]

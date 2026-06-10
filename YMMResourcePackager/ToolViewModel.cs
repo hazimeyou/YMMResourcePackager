@@ -3,7 +3,8 @@
     public class ToolViewModel : BaseViewModel
     {
         private const string OptionsFileName = "packaging_options.json";
-        private const string YmmpxLibPluginDownloadUrl = "https://github.com/hazimeyou/YmmpxLib/releases/latest/download/YmmpxLibPlugin.ymme";
+        private const string YmmpxLibPluginDownloadUrl = "https://github.com/hazimeyou/YmmpxLib/releases/download/v0.3.0/YmmpxLibPlugin.ymme";
+        private const string YmmpxLibPluginSha256 = "cc9af0b7541fbd9552f93e2f8573b65c5ba80b2e71572093deace67f456ffaa8";
         private static readonly JsonSerializerOptions WriteIndentedJsonOptions = new() { WriteIndented = true };
         private string? _selectedProject;
         private readonly AsyncRelayCommand _packageCommand;
@@ -667,9 +668,12 @@
                     return;
                 }
 
+                var outputTask = process.StandardOutput.ReadToEndAsync();
+                var errorTask = process.StandardError.ReadToEndAsync();
                 process.WaitForExit();
-                var output = process.StandardOutput.ReadToEnd();
-                var error = process.StandardError.ReadToEnd();
+                Task.WaitAll(outputTask, errorTask);
+                var output = outputTask.Result;
+                var error = errorTask.Result;
                 var details = string.IsNullOrWhiteSpace(output) ? error : output;
                 var hasFailureText = details.Contains("失敗", StringComparison.OrdinalIgnoreCase) ||
                                      details.Contains("error", StringComparison.OrdinalIgnoreCase);
@@ -702,6 +706,8 @@
             }
 
             string? outputPath = null;
+            string? temporaryOutputPath = null;
+            bool generatedPackageNeedsCleanup = false;
             try
             {
                 YMMResourcePackager.Shared.AppLogger.LogInfo("Pack requested.");
@@ -756,6 +762,7 @@
                     }
                 }
 
+                temporaryOutputPath = CreateTemporaryPackagePath(outputPath);
                 if (File.Exists(outputPath))
                 {
                     var r = MessageBox.Show("出力先に同名ファイルがあります。上書きしますか？", "確認", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
@@ -764,19 +771,21 @@
                         Status = "キャンセルされました。";
                         return;
                     }
-                if (r == MessageBoxResult.No)
-                {
-                    outputPath = GetStableAvailableFilePath(outputPath);
-                }
+                    if (r == MessageBoxResult.No)
+                    {
+                        outputPath = GetStableAvailableFilePath(outputPath);
+                        temporaryOutputPath = CreateTemporaryPackagePath(outputPath);
+                    }
                     else
                     {
-                        File.Delete(outputPath);
+                        temporaryOutputPath = CreateTemporaryPackagePath(outputPath);
                     }
                 }
 
+                generatedPackageNeedsCleanup = true;
                 await InvokeFeaturePackAsync(
                     SelectedProject,
-                    outputPath,
+                    temporaryOutputPath,
                     excludedFiles,
                     IncludeProjectUiSettings,
                     (message, percentage, processedBytes, totalBytes) =>
@@ -787,6 +796,10 @@
                             : message;
                     });
 
+                MoveGeneratedPackage(temporaryOutputPath, outputPath);
+
+                generatedPackageNeedsCleanup = false;
+                temporaryOutputPath = null;
                 Progress = 100;
                 Status = $"完了: {outputPath}";
                 YMMResourcePackager.Shared.AppLogger.LogInfo("Pack completed successfully.");
@@ -798,10 +811,9 @@
             }
             catch (Exception ex)
             {
-                if (!string.IsNullOrWhiteSpace(outputPath) && File.Exists(outputPath))
+                if (generatedPackageNeedsCleanup && !string.IsNullOrWhiteSpace(temporaryOutputPath))
                 {
-                    try { File.Delete(outputPath); }
-                    catch { }
+                    DeleteTempFileQuietly(temporaryOutputPath);
                 }
 
                 Status = $"エラー: {ex.Message}";
@@ -815,14 +827,7 @@
         {
             try
             {
-                var pluginRoot = AppDirectories.PluginDirectory;
-                if (string.IsNullOrWhiteSpace(pluginRoot) || !Directory.Exists(pluginRoot))
-                {
-                    YMMResourcePackager.Shared.AppLogger.LogWarning("Plugin directory is unavailable while checking YmmpxLib.");
-                    return false;
-                }
-
-                var exists = Directory.EnumerateFiles(pluginRoot, "YmmpxLib.dll", SearchOption.AllDirectories).Any();
+                var exists = TryGetLoadedYmmpxLibAssembly() is not null || File.Exists(GetInstalledYmmpxLibPath());
                 YMMResourcePackager.Shared.AppLogger.LogInfo($"YmmpxLib install check: {(exists ? "installed" : "not installed")}.");
                 return exists;
             }
@@ -830,6 +835,15 @@
             {
                 return false;
             }
+        }
+
+        private static string GetInstalledYmmpxLibPath() =>
+            Path.Combine(AppDirectories.PluginDirectory, "YmmpxLibPlugin", "YmmpxLib.dll");
+
+        private static System.Reflection.Assembly? TryGetLoadedYmmpxLibAssembly()
+        {
+            return AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => string.Equals(a.GetName().Name, "YmmpxLib", StringComparison.OrdinalIgnoreCase));
         }
 
         private async Task<bool> TryInstallYmmpxLibPluginAsync()
@@ -866,6 +880,7 @@
                 {
                     await response.Content.CopyToAsync(fs);
                 }
+                YMMResourcePackager.Shared.FileIntegrity.VerifySha256(ymmePath, YmmpxLibPluginSha256);
                 YMMResourcePackager.Shared.AppLogger.LogInfo("YmmpxLib Shared Library download completed.");
 
                 using var process = Process.Start(new ProcessStartInfo
@@ -881,6 +896,16 @@
                 YMMResourcePackager.Shared.AppLogger.LogInfo("Installer launched for YmmpxLib Shared Library.");
                 await process.WaitForExitAsync();
                 YMMResourcePackager.Shared.AppLogger.LogInfo($"Installer exited with code {process.ExitCode}.");
+                if (process.ExitCode != 0)
+                {
+                    MessageBox.Show(
+                        $"YmmpxLib Shared Library の導入に失敗しました。\nインストーラーが終了コード {process.ExitCode} を返しました。",
+                        "エラー",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return false;
+                }
+
                 return true;
             }
             catch (TaskCanceledException)
@@ -996,10 +1021,14 @@
             var assembly = System.Reflection.Assembly.LoadFrom(featurePath);
             var type = assembly.GetType("YMMResourcePackager.Features.EntryPoint")
                 ?? throw new InvalidOperationException("Features EntryPoint が見つかりません。");
+            var getAvailableMethod = type.GetMethod("GetAvailableUnpackDirectory", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                ?? throw new InvalidOperationException("GetAvailableUnpackDirectory メソッドが見つかりません。");
             var method = type.GetMethod("RunUnpack", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
                 ?? throw new InvalidOperationException("RunUnpack メソッドが見つかりません。");
 
-            object[] args = [ymmpxPath, Path.GetDirectoryName(ymmpxPath) ?? string.Empty, 0];
+            var desiredDirectory = GetPreferredUnpackDirectory(ymmpxPath);
+            var unpackDirectory = getAvailableMethod.Invoke(null, [desiredDirectory])?.ToString() ?? desiredDirectory;
+            object[] args = [ymmpxPath, unpackDirectory, 0];
             var projectPath = method.Invoke(null, args)?.ToString()
                 ?? throw new InvalidOperationException("展開後のプロジェクトパスが取得できません。");
             replacedPathCount = args[2] is int i ? i : 0;
@@ -1018,6 +1047,19 @@
         {
             return YMMResourcePackager.Shared.PackagingRules.GetStableAvailableFilePath(path);
         }
+
+        private static string GetPreferredUnpackDirectory(string ymmpxPath)
+        {
+            var parent = Path.GetDirectoryName(ymmpxPath) ?? string.Empty;
+            var fileName = Path.GetFileNameWithoutExtension(ymmpxPath);
+            return Path.Combine(parent, fileName);
+        }
+
+        private static string CreateTemporaryPackagePath(string finalPath)
+            => YMMResourcePackager.Shared.PackagingRules.CreateTemporaryPackagePath(finalPath);
+
+        private static void MoveGeneratedPackage(string sourcePath, string destinationPath)
+            => YMMResourcePackager.Shared.PackagingRules.MoveGeneratedPackage(sourcePath, destinationPath);
 
         private static string FormatBytes(long bytes)
         {

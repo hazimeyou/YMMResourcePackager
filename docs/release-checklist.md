@@ -5,16 +5,19 @@
 - [PASS] `dotnet restore .\YMMResourceUnpackerApp.sln`
 - [PASS] `dotnet build .\YMMResourceUnpackerApp.sln -c Release`
 - [PASS] `dotnet test .\YMMResourceUnpackerApp.sln -c Release`
-- [PASS] 9 tests passed
-- [PASS] `release.yml` uses `actions/setup-dotnet@v4`
+- [PASS] 15 tests passed
+- [PASS] GitHub Actions are pinned to commit SHAs
+- [PASS] YMM4 build libraries are pinned to `v4.53.0.2` and SHA-256 verified
 - [PASS] `release.yml` keeps `draft: true`
 - [PASS] `release.yml` sets `prerelease: false`
 - [PASS] `release.yml` artifact name is `YMMResourcePackager.ymme`
+- [PASS] `release.yml` copies `THIRD_PARTY_NOTICES.md` into the release package
 - [PASS] Local release package contents were enumerated
 - [PASS] `YmmpxLib.dll` is not included in the release package
 - [PASS] `YmmpxLib.deps.json` is not included in the release package
 - [PASS] `LICENSE` is included in the release package
 - [PASS] `readme.txt` is included in the release package
+- [PASS] `THIRD_PARTY_NOTICES.md` is included in the release package
 
 ## Release Package Contents
 
@@ -22,6 +25,7 @@ Validated archive contents for `YMMResourcePackager.ymme`:
 
 - `LICENSE`
 - `readme.txt`
+- `THIRD_PARTY_NOTICES.md`
 - `YMMResourcePackager.deps.json`
 - `YMMResourcePackager.dll`
 - `YMMResourcePackager.Features.dll`
@@ -33,14 +37,14 @@ Validated archive contents for `YMMResourcePackager.ymme`:
 
 ## YMM4 実機確認項目
 
-These require manual verification inside a running YMM4 environment.
+These require manual verification inside a running YMM4 environment. They are intentionally skipped for the current code-only release review.
 
-- [PENDING] `.ymme` のインストールが `YMMResourcePackager.ymme` で問題なく進むこと
-- [PENDING] `.ymme` インストール後にプラグインが起動できること
-- [PENDING] `YmmpxLibPlugin` 未導入時に導入案内が出ること
-- [PENDING] `YmmpxLib` 旧フォルダー検出の警告が表示されること
-- [PENDING] パッケージ化と展開が既存挙動を壊さずに動くこと
-- [PENDING] `.ymmpx` 関連付けが `YMMResourceUnpackerApp` と連動すること
+- [SKIPPED] `.ymme` のインストールが `YMMResourcePackager.ymme` で問題なく進むこと
+- [SKIPPED] `.ymme` インストール後にプラグインが起動できること
+- [SKIPPED] `YmmpxLibPlugin` 未導入時に導入案内が出ること
+- [SKIPPED] `YmmpxLib` 旧フォルダー検出の警告が表示されること
+- [SKIPPED] パッケージ化と展開が既存挙動を壊さずに動くこと
+- [SKIPPED] `.ymmpx` 関連付けが `YMMResourceUnpackerApp` と連動すること
 
 ## Notes
 

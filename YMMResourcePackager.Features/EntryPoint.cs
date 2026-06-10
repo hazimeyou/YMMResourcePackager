@@ -72,15 +72,13 @@ public static class EntryPoint
 
     private static (Type serviceType, Type optionsType, Type progressType) ResolveYmmpxTypes()
     {
-        var assembly = AppDomain.CurrentDomain.GetAssemblies()
-            .FirstOrDefault(a => string.Equals(a.GetName().Name, "YmmpxLib", StringComparison.OrdinalIgnoreCase));
-
+        var assembly = ResolveLoadedYmmpxAssembly();
         if (assembly is null)
         {
-            var pluginRoot = ResolvePluginRoot();
-            var dllPath = Directory.EnumerateFiles(pluginRoot, "YmmpxLib.dll", SearchOption.AllDirectories).FirstOrDefault();
+            var dllPath = ResolveInstalledYmmpxLibPath();
             if (string.IsNullOrWhiteSpace(dllPath) || !File.Exists(dllPath))
-                throw new FileNotFoundException("YmmpxLib.dll が見つかりません。YmmpxLib Shared Library を導入してください。");
+                throw new FileNotFoundException("YmmpxLib.dll が見つかりません。YMM 本体で読み込まれた YmmpxLib Shared Library を追加してください。");
+
             assembly = System.Reflection.Assembly.LoadFrom(dllPath);
         }
 
@@ -90,6 +88,18 @@ public static class EntryPoint
         return (serviceType, optionsType, progressType);
     }
 
+    private static System.Reflection.Assembly? ResolveLoadedYmmpxAssembly()
+    {
+        return AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(a => string.Equals(a.GetName().Name, "YmmpxLib", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string ResolveInstalledYmmpxLibPath()
+    {
+        var pluginRoot = ResolvePluginRoot();
+        return Path.Combine(pluginRoot, "user", "plugin", "YmmpxLibPlugin", "YmmpxLib.dll");
+    }
+
     private static string ResolvePluginRoot()
     {
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -97,10 +107,9 @@ public static class EntryPoint
         var normalized = baseDir.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
         var idx = normalized.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
         if (idx >= 0)
-            return normalized.Substring(0, idx + Path.Combine("user", "plugin").Length);
+            return normalized.Substring(0, idx).TrimEnd(Path.DirectorySeparatorChar);
 
-        var parent = Directory.GetParent(baseDir)?.Parent;
-        return parent?.FullName ?? baseDir;
+        return baseDir.TrimEnd(Path.DirectorySeparatorChar);
     }
 
     private static int ConvertToInt32(object? value) { try { return value is null ? 0 : Convert.ToInt32(value); } catch { return 0; } }

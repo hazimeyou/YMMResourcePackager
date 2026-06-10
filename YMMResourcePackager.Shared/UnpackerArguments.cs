@@ -36,7 +36,7 @@ public static class UnpackerArguments
             return Path.GetFullPath(trimmed);
         }
 
-        throw new InvalidOperationException($"不明な展開先モードです: {mode}");
+        return pluginDirectory;
     }
 
     public sealed record LoggingSwitchResult(string[] RemainingArgs, bool EnableLogging, bool DisableLogging);

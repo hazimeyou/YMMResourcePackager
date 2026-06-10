@@ -1,6 +1,6 @@
 ﻿<Project>
 	<PropertyGroup>
-		<YMM4_PATH Condition="'$(YMM4_PATH)'==''">C:\Users\yu-za-hazimeyou\Desktop\YukkuriMovieMaker_v4_Lite</YMM4_PATH>
+		<YMM4_PATH Condition="'$(YMM4_PATH)'==''">C:\path\to\YukkuriMovieMaker_v4</YMM4_PATH>
 		<YMM4DirPath Condition="'$(YMM4DirPath)'==''">$(YMM4_PATH)\</YMM4DirPath>
 	</PropertyGroup>
 </Project>

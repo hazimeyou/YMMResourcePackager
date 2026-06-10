@@ -83,6 +83,22 @@ public static class PackagingRules
         return Path.Combine(dir, $"{name}_{max + 1:000}{ext}");
     }
 
+    public static string CreateTemporaryPackagePath(string finalPath)
+    {
+        var directory = Path.GetDirectoryName(finalPath) ?? string.Empty;
+        var name = Path.GetFileNameWithoutExtension(finalPath);
+        var extension = Path.GetExtension(finalPath);
+        return Path.Combine(directory, $".{name}.{Guid.NewGuid():N}.tmp{extension}");
+    }
+
+    public static void MoveGeneratedPackage(string sourcePath, string destinationPath)
+    {
+        if (!File.Exists(sourcePath))
+            throw new FileNotFoundException("一時出力ファイルが見つかりません。", sourcePath);
+
+        File.Move(sourcePath, destinationPath, overwrite: true);
+    }
+
     public static IEnumerable<string> FindFilePaths(JsonElement root)
     {
         var stack = new Stack<JsonElement>();

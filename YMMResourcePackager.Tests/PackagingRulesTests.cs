@@ -75,6 +75,42 @@ public sealed class PackagingRulesTests : IDisposable
         Assert.False(PackagingRules.IsExcludedFile("assets/other.txt", excluded));
     }
 
+    [Fact]
+    public void CreatesTemporaryPackagePathBesideFinalOutput()
+    {
+        var finalPath = Path.Combine(_root, "MyProject.ymmpx");
+
+        var temporaryPath = PackagingRules.CreateTemporaryPackagePath(finalPath);
+
+        Assert.Equal(_root, Path.GetDirectoryName(temporaryPath));
+        Assert.StartsWith(".MyProject.", Path.GetFileName(temporaryPath));
+        Assert.EndsWith(".tmp.ymmpx", temporaryPath);
+        Assert.NotEqual(temporaryPath, PackagingRules.CreateTemporaryPackagePath(finalPath));
+    }
+
+    [Fact]
+    public void MovesGeneratedPackageAndOverwritesDestination()
+    {
+        var source = Path.Combine(_root, "source.tmp.ymmpx");
+        var destination = Path.Combine(_root, "destination.ymmpx");
+        File.WriteAllText(source, "new");
+        File.WriteAllText(destination, "old");
+
+        PackagingRules.MoveGeneratedPackage(source, destination);
+
+        Assert.False(File.Exists(source));
+        Assert.Equal("new", File.ReadAllText(destination));
+    }
+
+    [Fact]
+    public void RejectsMissingGeneratedPackage()
+    {
+        var source = Path.Combine(_root, "missing.tmp.ymmpx");
+        var destination = Path.Combine(_root, "destination.ymmpx");
+
+        Assert.Throws<FileNotFoundException>(() => PackagingRules.MoveGeneratedPackage(source, destination));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))

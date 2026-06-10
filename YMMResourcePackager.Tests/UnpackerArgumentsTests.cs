@@ -62,4 +62,18 @@ public sealed class UnpackerArgumentsTests
                 Path.Combine("C:", "Projects", "sample.ymmpx"),
                 Path.Combine("C:", "Plugins", "YMMResourcePackager")));
     }
+
+    [Fact]
+    public void FallsBackToPluginFolderForUnknownMode()
+    {
+        var pluginDirectory = Path.Combine("C:", "Plugins", "YMMResourcePackager");
+
+        var result = UnpackerArguments.ResolveUnpackBaseDirectory(
+            "legacy-mode",
+            null,
+            Path.Combine("C:", "Projects", "sample.ymmpx"),
+            pluginDirectory);
+
+        Assert.Equal(pluginDirectory, result);
+    }
 }
