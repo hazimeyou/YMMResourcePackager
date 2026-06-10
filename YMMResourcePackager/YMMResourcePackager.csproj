@@ -5,7 +5,12 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version Condition="'$(Version)'==''">0.0.0</Version>
+    <Authors>hazimeyou</Authors>
+    <Description>YMM4 resource packager plugin for packing and unpacking project assets.</Description>
+    <RepositoryUrl>https://github.com/hazimeyou/YMMResourcePackager</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/hazimeyou/YMMResourcePackager</PackageProjectUrl>
+    <Copyright>Copyright (c) 2026 hazimeyou</Copyright>
+    <Version Condition="'$(Version)'==''">1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup Condition="Exists('$(YMM4_PATH)\YukkuriMovieMaker.Plugin.dll')">

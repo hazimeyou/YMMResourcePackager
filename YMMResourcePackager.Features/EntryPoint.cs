@@ -80,7 +80,7 @@ public static class EntryPoint
             var pluginRoot = ResolvePluginRoot();
             var dllPath = Directory.EnumerateFiles(pluginRoot, "YmmpxLib.dll", SearchOption.AllDirectories).FirstOrDefault();
             if (string.IsNullOrWhiteSpace(dllPath) || !File.Exists(dllPath))
-                throw new FileNotFoundException("YmmpxLib.dll が見つかりません。YmmpxLibPlugin を導入してください。");
+                throw new FileNotFoundException("YmmpxLib.dll が見つかりません。YmmpxLib Shared Library を導入してください。");
             assembly = System.Reflection.Assembly.LoadFrom(dllPath);
         }
 
