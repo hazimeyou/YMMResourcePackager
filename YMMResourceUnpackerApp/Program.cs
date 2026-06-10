@@ -133,34 +133,18 @@ namespace YMMResourceUnpackerApp
         private static string ResolveUnpackBaseDirectory(string ymmpxPath, string pluginDirectory)
         {
             var settings = AppSettingsStore.Load();
-            var mode = settings.UnpackOutputMode;
-
-            if (string.Equals(mode, UnpackOutputModes.PluginFolder, StringComparison.Ordinal))
-                return pluginDirectory;
-
-            if (string.Equals(mode, UnpackOutputModes.YmmpxFolder, StringComparison.Ordinal))
-                return Path.GetDirectoryName(ymmpxPath) ?? pluginDirectory;
-
-            if (string.Equals(mode, UnpackOutputModes.CustomFolder, StringComparison.Ordinal))
-            {
-                var customDirectory = settings.CustomUnpackDirectory?.Trim();
-                if (string.IsNullOrWhiteSpace(customDirectory))
-                    throw new InvalidOperationException("展開先フォルダーが未設定です。");
-
-                return Path.GetFullPath(customDirectory);
-            }
-
-            throw new InvalidOperationException($"不明な展開先モードです: {mode}");
+            return UnpackerArguments.ResolveUnpackBaseDirectory(
+                settings.UnpackOutputMode,
+                settings.CustomUnpackDirectory,
+                ymmpxPath,
+                pluginDirectory);
         }
 
         private static string[] HandleLoggingSwitches(string[] args)
         {
-            var remaining = args
-                .Where(a => !string.Equals(a, "--enable-logging", StringComparison.OrdinalIgnoreCase))
-                .Where(a => !string.Equals(a, "--disable-logging", StringComparison.OrdinalIgnoreCase))
-                .ToArray();
+            var parsed = UnpackerArguments.StripLoggingSwitches(args);
 
-            if (args.Any(a => string.Equals(a, "--enable-logging", StringComparison.OrdinalIgnoreCase)))
+            if (parsed.EnableLogging)
             {
                 var settings = AppSettingsStore.Load();
                 settings.EnableLogging = true;
@@ -169,7 +153,7 @@ namespace YMMResourceUnpackerApp
                 Console.WriteLine("Logging enabled.");
             }
 
-            if (args.Any(a => string.Equals(a, "--disable-logging", StringComparison.OrdinalIgnoreCase)))
+            if (parsed.DisableLogging)
             {
                 var settings = AppSettingsStore.Load();
                 settings.EnableLogging = false;
@@ -178,7 +162,7 @@ namespace YMMResourceUnpackerApp
                 Console.WriteLine("Logging disabled.");
             }
 
-            return remaining;
+            return parsed.RemainingArgs;
         }
 
         private static bool TryCreateFeatureService(out FeatureServiceProxy service, out string error)

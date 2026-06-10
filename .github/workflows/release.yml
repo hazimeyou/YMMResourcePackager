@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
 
@@ -79,8 +79,9 @@ jobs:
       - name: Create ZIP
         run: Compress-Archive -Path "package\*" -DestinationPath "YMMResourcePackager.zip"
 
-      - name: Rename ZIP to .ymme
-        run: Move-Item YMMResourcePackager.zip YMMResourcePackager.ymme
+      - name: Rename ZIP to fixed .ymme
+        shell: pwsh
+        run: Move-Item "YMMResourcePackager.zip" "YMMResourcePackager.ymme"
 
       - name: Create Release
         uses: ncipollo/release-action@v1
@@ -89,4 +90,4 @@ jobs:
           tag: ${{ github.ref_name }}
           artifacts: YMMResourcePackager.ymme
           draft: true
-          prerelease: true
+          prerelease: false

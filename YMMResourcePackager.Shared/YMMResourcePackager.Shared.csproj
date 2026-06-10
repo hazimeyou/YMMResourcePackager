@@ -3,5 +3,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Authors>hazimeyou</Authors>
+    <Description>Shared non-UI logic for YMMResourcePackager.</Description>
+    <RepositoryUrl>https://github.com/hazimeyou/YMMResourcePackager</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/hazimeyou/YMMResourcePackager</PackageProjectUrl>
+    <Copyright>Copyright (c) 2026 hazimeyou</Copyright>
   </PropertyGroup>
 </Project>
