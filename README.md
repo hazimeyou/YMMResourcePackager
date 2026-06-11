@@ -2,6 +2,34 @@
 
 YMM4素材同梱プラグインは、YukkuriMovieMaker4 のプロジェクト素材をまとめて管理・共有するためのプラグインです。
 
+## 概要
+
+- YukkuriMovieMaker プロジェクト内の素材を簡単にまとめたり展開可能 
+- プロジェクトファイル内の設定を削除する機能も提供
+- 除外設定ウィンドウで不要なファイルを選択的に除外可能  
+- YMMPXライブラリを用いたプロジェクトのパッケージ化と展開機能を提供
+- プロジェクトファイルの関連付け機能で、.ymmpx ファイルをダブルクリックで展開＆再リンクして開くことが可能
+
+---
+
+## 主な機能
+
+### プロジェクト素材のパッケージ化
+
+- プロジェクト内の素材を一括でパッケージ化  
+- 他のユーザーと共有可能  
+- 除外設定で指定したファイルはパッケージ化から除外されます  
+- ウインドウ配置などの不要な内部情報を削除可能
+
+### 除外設定
+
+- パッケージ化したくないファイルをチェックボックスで簡単に除外  
+- 「すべて選択」「すべて解除」ボタンで一括操作  
+- OK で設定を保存、キャンセルで変更を破棄  
+- 注:著作権で保護された素材は除外してください
+ 
+---
+
 ## インストール方法
 
 1. GitHub Releases から `YMMResourcePackager.ymme` をダウンロードします。
@@ -14,11 +42,7 @@ YMM4素材同梱プラグインは、YukkuriMovieMaker4 のプロジェクト素
 - `YmmpxLibPlugin` が未導入の場合、アプリ側で導入案内を表示します。
 - このリポジトリとリリース成果物には `YmmpxLib.dll` は同梱しません。
 
-## v1.0.0 移行注意
 
-- 旧構成の `YmmpxLib` フォルダーがプラグインルート配下に残っている場合は、削除案内が表示されます。
-- 旧フォルダーは自動削除しません。削除後に YMM を再起動してください。
-- 互換性と既知の制限は [docs/known-limitations.md](./docs/known-limitations.md) を参照してください。
 
 ## 主要な機能
 
@@ -27,14 +51,9 @@ YMM4素材同梱プラグインは、YukkuriMovieMaker4 のプロジェクト素
 - `.ymmpx` の関連付けと展開
 - 出力先同名ファイルの扱いの調整
 
-## ドキュメント
-
-- [CHANGELOG.md](./CHANGELOG.md)
-- [docs/release-checklist.md](./docs/release-checklist.md)
-- [docs/compatibility-policy.md](./docs/compatibility-policy.md)
-- [docs/known-limitations.md](./docs/known-limitations.md)
-- [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)
 
 ## ライセンス
 
 このプロジェクトは [MIT License](./LICENSE) のもとで公開されています。
+
+YMMPXアイコンの文字表現には、あずきフォント制作の「うずらフォント」を使用しています。
