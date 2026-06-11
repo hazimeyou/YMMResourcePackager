@@ -149,10 +149,19 @@ public static class PackagingRules
 
         if (Directory.Exists(dir))
         {
-            foreach (var file in Directory.EnumerateFiles(dir, $"{name}_*{ext}"))
+            foreach (var file in Directory.EnumerateFiles(dir))
             {
                 var fileName = Path.GetFileName(file);
-                var match = System.Text.RegularExpressions.Regex.Match(fileName, pattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+                if (!fileName.StartsWith($"{name}_", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (!string.Equals(Path.GetExtension(fileName), ext, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var match = System.Text.RegularExpressions.Regex.Match(
+                    fileName,
+                    pattern,
+                    System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
                 if (match.Success && int.TryParse(match.Groups[1].Value, out var n))
                     max = Math.Max(max, n);
             }
@@ -214,13 +223,13 @@ public static class PackagingRules
         if (string.IsNullOrWhiteSpace(filePath))
             return null;
 
-        if (Uri.TryCreate(filePath, UriKind.Absolute, out var uri) && !uri.IsFile)
+        if (!TryNormalizeInputPath(filePath, out var normalizedPath))
             return null;
 
-        if (Path.IsPathRooted(filePath))
-            return Path.GetFullPath(filePath);
+        if (Path.IsPathRooted(normalizedPath))
+            return Path.GetFullPath(normalizedPath);
 
-        return Path.GetFullPath(Path.Combine(projectDir, filePath));
+        return Path.GetFullPath(Path.Combine(projectDir, normalizedPath));
     }
 
     private static string[] LoadProjectFilePaths(string projectPath)
@@ -241,19 +250,22 @@ public static class PackagingRules
     private static IReadOnlyList<string> BuildPathCandidates(string path, string projectDir)
     {
         var candidates = new List<string>();
-        var normalized = NormalizeExcludePath(path);
+        if (!TryNormalizeInputPath(path, out var normalizedInput))
+            return candidates;
+
+        var normalized = NormalizeExcludePath(normalizedInput);
         if (!string.IsNullOrWhiteSpace(normalized))
             candidates.Add(normalized);
 
-        if (Path.IsPathRooted(path))
+        if (Path.IsPathRooted(normalizedInput))
         {
-            var absolute = NormalizeExcludePath(Path.GetFullPath(path));
+            var absolute = NormalizeExcludePath(Path.GetFullPath(normalizedInput));
             if (!string.IsNullOrWhiteSpace(absolute))
                 candidates.Add(absolute);
         }
         else if (!string.IsNullOrWhiteSpace(projectDir))
         {
-            var resolved = NormalizeExcludePath(Path.GetFullPath(Path.Combine(projectDir, path)));
+            var resolved = NormalizeExcludePath(Path.GetFullPath(Path.Combine(projectDir, normalizedInput)));
             if (!string.IsNullOrWhiteSpace(resolved))
                 candidates.Add(resolved);
         }
@@ -288,11 +300,41 @@ public static class PackagingRules
 
     private static string NormalizeExcludePath(string path)
     {
-        var normalized = path.Trim()
-            .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
-            .TrimEnd(Path.DirectorySeparatorChar);
+        if (!TryNormalizeInputPath(path, out var normalizedInput))
+            return string.Empty;
 
-        return normalized;
+        var normalized = normalizedInput
+            .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+
+        var trimmed = normalized.TrimEnd(Path.DirectorySeparatorChar);
+        var root = Path.GetPathRoot(normalized);
+        if (!string.IsNullOrWhiteSpace(root) &&
+            string.Equals(trimmed, root.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
+        {
+            return root;
+        }
+
+        return trimmed;
+    }
+
+    private static bool TryNormalizeInputPath(string path, out string normalized)
+    {
+        normalized = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        var trimmed = path.Trim();
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+        {
+            if (!uri.IsFile)
+                return false;
+
+            trimmed = uri.LocalPath;
+        }
+
+        normalized = trimmed.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        return true;
     }
 
     private sealed class StringTupleComparer : IEqualityComparer<(string Path, bool IsFolder)>

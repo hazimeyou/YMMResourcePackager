@@ -37,6 +37,18 @@ public sealed class PackagingRulesTests : IDisposable
     }
 
     [Fact]
+    public void ReturnsStableAvailableFilePathCaseInsensitive()
+    {
+        var output = Path.Combine(_root, "MyProject.ymmpx");
+        File.WriteAllText(output, "base");
+        File.WriteAllText(Path.Combine(_root, "myproject_001.YMMPX"), "one");
+
+        var next = PackagingRules.GetStableAvailableFilePath(output);
+
+        Assert.Equal(Path.Combine(_root, "MyProject_002.ymmpx"), next);
+    }
+
+    [Fact]
     public void ReturnsStableAvailableFilePathPastThreeDigits()
     {
         var output = Path.Combine(_root, "BigProject.ymmpx");
@@ -76,6 +88,34 @@ public sealed class PackagingRulesTests : IDisposable
         Assert.Equal(3, result.DetectedMaterialCount);
         Assert.Equal(1, result.ExcludedMaterialCount);
         Assert.Equal(1, result.MissingMaterialCount);
+    }
+
+    [Fact]
+    public void ValidatesFileUriMaterialsWithoutThrowing()
+    {
+        var projectDir = Path.Combine(_root, "uri-project");
+        var assetsDir = Path.Combine(projectDir, "assets");
+        Directory.CreateDirectory(assetsDir);
+
+        var materialPath = Path.Combine(assetsDir, "uri.wav");
+        File.WriteAllText(materialPath, "uri");
+
+        var projectPath = Path.Combine(projectDir, "sample.ymmp");
+        File.WriteAllText(
+            projectPath,
+            $$"""
+            {
+              "Items": [
+                { "FilePath": "{{new Uri(materialPath).AbsoluteUri}}" }
+              ]
+            }
+            """);
+
+        var result = PackagingRules.ValidateProjectBeforePack(projectPath, Array.Empty<string>());
+
+        Assert.Equal(1, result.DetectedMaterialCount);
+        Assert.Equal(0, result.ExcludedMaterialCount);
+        Assert.Equal(0, result.MissingMaterialCount);
     }
 
     [Fact]
@@ -124,6 +164,63 @@ public sealed class PackagingRulesTests : IDisposable
         Assert.Equal(2, result.DetectedMaterialCount);
         Assert.Equal(1, result.ExcludedMaterialCount);
         Assert.Equal(0, result.MissingMaterialCount);
+    }
+
+    [Fact]
+    public void ResolvesFileUriRulesAgainstProjectFiles()
+    {
+        var projectDir = Path.Combine(_root, "file-uri-rule");
+        var assetsDir = Path.Combine(projectDir, "assets");
+        Directory.CreateDirectory(assetsDir);
+
+        File.WriteAllText(Path.Combine(assetsDir, "match.wav"), "match");
+        File.WriteAllText(Path.Combine(assetsDir, "keep.wav"), "keep");
+
+        var projectPath = Path.Combine(projectDir, "sample.ymmp");
+        File.WriteAllText(
+            projectPath,
+            """
+            {
+              "Items": [
+                { "FilePath": "assets/match.wav" },
+                { "FilePath": "assets/keep.wav" }
+              ]
+            }
+            """);
+
+        var rules = new[]
+        {
+            new ExcludeRule
+            {
+                Path = new Uri(Path.Combine(assetsDir, "match.wav")).AbsoluteUri,
+                IsFolder = false,
+                IsExcluded = true
+            }
+        };
+
+        var excluded = PackagingRules.ResolveExcludedFiles(projectPath, rules);
+
+        Assert.Equal(new[] { "assets/match.wav" }, excluded.OrderBy(x => x));
+    }
+
+    [Fact]
+    public void PreservesDriveRootExclusionWhenNormalizing()
+    {
+        var rules = new[]
+        {
+            new ExcludeRule
+            {
+                Path = @"C:\",
+                IsFolder = true,
+                IsExcluded = true
+            }
+        };
+
+        var normalized = PackagingRules.NormalizeExcludeRules(rules);
+
+        Assert.Single(normalized);
+        Assert.Equal(@"C:\", normalized[0].Path);
+        Assert.True(normalized[0].IsFolder);
     }
 
     [Fact]
