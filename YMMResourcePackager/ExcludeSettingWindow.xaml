@@ -1,36 +1,92 @@
-﻿<Window x:Class="YMMResourcePackager.ExcludeSettingWindow"
+<Window x:Class="YMMResourcePackager.ExcludeSettingWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="除外設定"
-        Height="500" Width="600"
+        Height="560" Width="760"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="10">
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
-            <Button Name="BtnSelectAll" Content="すべて選択" Click="BtnSelectAll_Click"
-                    Margin="0,0,5,0"/>
-            <Button Name="BtnDeselectAll" Content="すべて解除" Click="BtnDeselectAll_Click"
-                    Margin="0,0,5,0"/>
+    <DockPanel Margin="12">
+        <TextBlock DockPanel.Dock="Top"
+                   Margin="0,0,0,10"
+                   Text="グローバル除外は全プロジェクト共通です。ローカル除外は現在のプロジェクトだけに保存されます。"
+                   TextWrapping="Wrap" />
+
+        <StackPanel DockPanel.Dock="Bottom"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,10,0,0">
             <Button Name="BtnOk" Content="OK" Click="BtnOk_Click"
-                    Width="75" Margin="0,0,5,0"/>
+                    Width="85" Margin="0,0,6,0"/>
             <Button Name="BtnCancel" Content="キャンセル" Click="BtnCancel_Click"
-                    Width="75"/>
+                    Width="85"/>
         </StackPanel>
 
-        <ListView Name="ExcludeListView"
-                  ItemsSource="{Binding ExcludeItems}">
-            <ListView.View>
-                <GridView>
-                    <GridViewColumn Width="50">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <CheckBox IsChecked="{Binding IsExcluded, Mode=TwoWay}" Margin="5"/>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                    <GridViewColumn Header="ファイルパス" Width="500" DisplayMemberBinding="{Binding FilePath}"/>
-                </GridView>
-            </ListView.View>
-        </ListView>
+        <TabControl>
+            <TabItem Header="グローバル除外">
+                <DockPanel Margin="0,10,0,0">
+                    <StackPanel DockPanel.Dock="Top"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Left"
+                                Margin="0,0,0,10">
+                        <Button Content="ファイル追加" Click="BtnAddGlobalFile_Click" Margin="0,0,6,0"/>
+                        <Button Content="フォルダー追加" Click="BtnAddGlobalFolder_Click" Margin="0,0,6,0"/>
+                        <Button Content="選択削除" Click="BtnRemoveGlobalSelected_Click" Margin="0,0,6,0"/>
+                        <Button Content="全選択" Click="BtnSelectAllGlobal_Click" Margin="0,0,6,0"/>
+                        <Button Content="全解除" Click="BtnDeselectAllGlobal_Click"/>
+                    </StackPanel>
+
+                    <ListView x:Name="GlobalExcludeListView"
+                              ItemsSource="{Binding GlobalExcludeItems}"
+                              SelectionMode="Extended">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Width="70">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsExcluded, Mode=TwoWay}" Margin="5,0"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="種別" Width="90" DisplayMemberBinding="{Binding Path=KindText}"/>
+                                <GridViewColumn Header="パス" Width="530" DisplayMemberBinding="{Binding Path=Path}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="ローカル除外">
+                <DockPanel Margin="0,10,0,0">
+                    <StackPanel DockPanel.Dock="Top"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Left"
+                                Margin="0,0,0,10">
+                        <Button Content="ファイル追加" Click="BtnAddLocalFile_Click" Margin="0,0,6,0"/>
+                        <Button Content="フォルダー追加" Click="BtnAddLocalFolder_Click" Margin="0,0,6,0"/>
+                        <Button Content="選択削除" Click="BtnRemoveLocalSelected_Click" Margin="0,0,6,0"/>
+                        <Button Content="全選択" Click="BtnSelectAllLocal_Click" Margin="0,0,6,0"/>
+                        <Button Content="全解除" Click="BtnDeselectAllLocal_Click"/>
+                    </StackPanel>
+
+                    <ListView x:Name="LocalExcludeListView"
+                              ItemsSource="{Binding LocalExcludeItems}"
+                              SelectionMode="Extended">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Width="70">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsExcluded, Mode=TwoWay}" Margin="5,0"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="種別" Width="90" DisplayMemberBinding="{Binding Path=KindText}"/>
+                                <GridViewColumn Header="パス" Width="530" DisplayMemberBinding="{Binding Path=Path}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </DockPanel>
+            </TabItem>
+        </TabControl>
     </DockPanel>
 </Window>

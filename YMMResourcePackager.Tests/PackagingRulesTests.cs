@@ -37,6 +37,18 @@ public sealed class PackagingRulesTests : IDisposable
     }
 
     [Fact]
+    public void ReturnsStableAvailableFilePathPastThreeDigits()
+    {
+        var output = Path.Combine(_root, "BigProject.ymmpx");
+        File.WriteAllText(output, "base");
+        File.WriteAllText(Path.Combine(_root, "BigProject_999.ymmpx"), "nine");
+
+        var next = PackagingRules.GetStableAvailableFilePath(output);
+
+        Assert.Equal(Path.Combine(_root, "BigProject_1000.ymmpx"), next);
+    }
+
+    [Fact]
     public void ValidatesDetectedExcludedAndMissingMaterials()
     {
         var projectDir = Path.Combine(_root, "project");
@@ -73,6 +85,110 @@ public sealed class PackagingRulesTests : IDisposable
 
         Assert.True(PackagingRules.IsExcludedFile("assets/file.txt", excluded));
         Assert.False(PackagingRules.IsExcludedFile("assets/other.txt", excluded));
+    }
+
+    [Fact]
+    public void ResolvesFolderRulesAgainstProjectFiles()
+    {
+        var projectDir = Path.Combine(_root, "folder-rule");
+        var assetsDir = Path.Combine(projectDir, "assets", "bgm");
+        Directory.CreateDirectory(assetsDir);
+
+        File.WriteAllText(Path.Combine(assetsDir, "theme.wav"), "theme");
+        File.WriteAllText(Path.Combine(projectDir, "assets", "keep.txt"), "keep");
+
+        var projectPath = Path.Combine(projectDir, "sample.ymmp");
+        File.WriteAllText(
+            projectPath,
+            """
+            {
+              "Items": [
+                { "FilePath": "assets/bgm/theme.wav" },
+                { "FilePath": "assets/keep.txt" }
+              ]
+            }
+            """);
+
+        var rules = new[]
+        {
+            new ExcludeRule
+            {
+                Path = Path.Combine(projectDir, "assets", "bgm"),
+                IsFolder = true,
+                IsExcluded = true
+            }
+        };
+
+        var result = PackagingRules.ValidateProjectBeforePack(projectPath, rules);
+
+        Assert.Equal(2, result.DetectedMaterialCount);
+        Assert.Equal(1, result.ExcludedMaterialCount);
+        Assert.Equal(0, result.MissingMaterialCount);
+    }
+
+    [Fact]
+    public void ResolvesLocalRelativeRulesAgainstProjectFiles()
+    {
+        var projectDir = Path.Combine(_root, "local-rule");
+        var assetsDir = Path.Combine(projectDir, "assets");
+        Directory.CreateDirectory(assetsDir);
+
+        File.WriteAllText(Path.Combine(assetsDir, "local.wav"), "local");
+        File.WriteAllText(Path.Combine(assetsDir, "other.wav"), "other");
+
+        var projectPath = Path.Combine(projectDir, "sample.ymmp");
+        File.WriteAllText(
+            projectPath,
+            """
+            {
+              "Items": [
+                { "FilePath": "assets/local.wav" },
+                { "FilePath": "assets/other.wav" }
+              ]
+            }
+            """);
+
+        var rules = new[]
+        {
+            new ExcludeRule
+            {
+                Path = "assets/local.wav",
+                IsFolder = false,
+                IsExcluded = true
+            }
+        };
+
+        var excluded = PackagingRules.ResolveExcludedFiles(projectPath, rules);
+
+        Assert.Equal(new[] { "assets/local.wav" }, excluded.OrderBy(x => x));
+    }
+
+    [Fact]
+    public void LoadsLegacyExcludeRulesFromJson()
+    {
+        var json = """
+                   [
+                     { "FilePath": "assets/legacy.wav", "IsExcluded": true },
+                     { "FilePath": "assets/folder", "IsFolder": true, "IsExcluded": true }
+                   ]
+                   """;
+
+        var rules = ExcludeRuleStore.LoadFromJson(json);
+
+        Assert.Collection(
+            rules.OrderBy(x => x.Path, StringComparer.OrdinalIgnoreCase),
+            first =>
+            {
+                Assert.Equal("assets/folder", first.Path);
+                Assert.True(first.IsFolder);
+                Assert.True(first.IsExcluded);
+            },
+            second =>
+            {
+                Assert.Equal("assets/legacy.wav", second.Path);
+                Assert.False(second.IsFolder);
+                Assert.True(second.IsExcluded);
+            });
     }
 
     [Fact]

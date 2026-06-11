@@ -31,16 +31,94 @@ public static class PackagingRules
         return NormalizeExcludedFiles(excludedFiles).Contains(filePath.Trim());
     }
 
+    public static HashSet<string> ResolveExcludedFiles(string projectPath, IEnumerable<ExcludeRule>? excludedRules)
+    {
+        var projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
+        var files = LoadProjectFilePaths(projectPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in files)
+        {
+            if (IsExcludedFile(file, projectDir, excludedRules))
+                excluded.Add(file);
+        }
+
+        return excluded;
+    }
+
+    public static bool IsExcludedFile(string filePath, string projectDir, IEnumerable<ExcludeRule>? excludedRules)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return false;
+
+        var rules = NormalizeExcludeRules(excludedRules).Where(x => x.IsExcluded).ToArray();
+        if (rules.Length == 0)
+            return false;
+
+        var candidates = BuildPathCandidates(filePath, projectDir);
+        foreach (var rule in rules)
+        {
+            var ruleCandidates = BuildRuleCandidates(rule.Path, projectDir);
+            foreach (var candidate in candidates)
+            {
+                foreach (var ruleCandidate in ruleCandidates)
+                {
+                    if (MatchesRule(candidate, ruleCandidate, rule.IsFolder))
+                        return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public static IReadOnlyList<ExcludeRule> NormalizeExcludeRules(IEnumerable<ExcludeRule>? excludedRules)
+    {
+        return (excludedRules ?? [])
+            .Where(x => x is not null && !string.IsNullOrWhiteSpace(x.Path))
+            .Select(x => new ExcludeRule
+            {
+                Path = NormalizeExcludePath(x.Path),
+                IsFolder = x.IsFolder,
+                IsExcluded = x.IsExcluded
+            })
+            .GroupBy(x => (x.Path, x.IsFolder), StringTupleComparer.Instance)
+            .Select(g => g.Last())
+            .ToArray();
+    }
+
+    public static PackagingValidationResult ValidateProjectBeforePack(string projectPath, IEnumerable<ExcludeRule>? excludedRules)
+    {
+        var excluded = ResolveExcludedFiles(projectPath, excludedRules);
+        var files = LoadProjectFilePaths(projectPath);
+
+        var missingCount = 0;
+        var projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
+        foreach (var file in files)
+        {
+            if (excluded.Contains(file))
+                continue;
+
+            var resolved = ResolveMaterialPath(file, projectDir);
+            if (resolved is null || !File.Exists(resolved))
+                missingCount++;
+        }
+
+        return new PackagingValidationResult
+        {
+            DetectedMaterialCount = files.Length,
+            ExcludedMaterialCount = excluded.Count,
+            MissingMaterialCount = missingCount
+        };
+    }
+
     public static PackagingValidationResult ValidateProjectBeforePack(string projectPath, IEnumerable<string?>? excludedFiles)
     {
         var excluded = NormalizeExcludedFiles(excludedFiles);
-        var jsonText = File.ReadAllText(projectPath);
-        using JsonDocument doc = JsonDocument.Parse(jsonText);
+        var files = LoadProjectFilePaths(projectPath);
         var projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
-        var files = FindFilePaths(doc.RootElement)
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
 
         var missingCount = 0;
         foreach (var file in files)
@@ -66,7 +144,7 @@ public static class PackagingRules
         var dir = Path.GetDirectoryName(path) ?? string.Empty;
         var name = Path.GetFileNameWithoutExtension(path);
         var ext = Path.GetExtension(path);
-        var pattern = $"^{System.Text.RegularExpressions.Regex.Escape(name)}_(\\d{{3}}){System.Text.RegularExpressions.Regex.Escape(ext)}$";
+        var pattern = $"^{System.Text.RegularExpressions.Regex.Escape(name)}_(\\d+){System.Text.RegularExpressions.Regex.Escape(ext)}$";
         var max = 0;
 
         if (Directory.Exists(dir))
@@ -80,7 +158,7 @@ public static class PackagingRules
             }
         }
 
-        return Path.Combine(dir, $"{name}_{max + 1:000}{ext}");
+        return Path.Combine(dir, $"{name}_{max + 1:D3}{ext}");
     }
 
     public static string CreateTemporaryPackagePath(string finalPath)
@@ -143,6 +221,89 @@ public static class PackagingRules
             return Path.GetFullPath(filePath);
 
         return Path.GetFullPath(Path.Combine(projectDir, filePath));
+    }
+
+    private static string[] LoadProjectFilePaths(string projectPath)
+    {
+        var jsonText = File.ReadAllText(projectPath);
+        using JsonDocument doc = JsonDocument.Parse(jsonText);
+        return FindFilePaths(doc.RootElement)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> BuildPathCandidates(string path, string projectDir)
+    {
+        var candidates = new List<string>();
+        var normalized = NormalizeExcludePath(path);
+        if (!string.IsNullOrWhiteSpace(normalized))
+            candidates.Add(normalized);
+
+        if (Path.IsPathRooted(path))
+        {
+            var absolute = NormalizeExcludePath(Path.GetFullPath(path));
+            if (!string.IsNullOrWhiteSpace(absolute))
+                candidates.Add(absolute);
+        }
+        else if (!string.IsNullOrWhiteSpace(projectDir))
+        {
+            var resolved = NormalizeExcludePath(Path.GetFullPath(Path.Combine(projectDir, path)));
+            if (!string.IsNullOrWhiteSpace(resolved))
+                candidates.Add(resolved);
+        }
+
+        return candidates
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> BuildRuleCandidates(string path, string projectDir)
+    {
+        return BuildPathCandidates(path, projectDir);
+    }
+
+    private static bool MatchesRule(string candidate, string ruleCandidate, bool isFolder)
+    {
+        if (string.IsNullOrWhiteSpace(candidate) || string.IsNullOrWhiteSpace(ruleCandidate))
+            return false;
+
+        if (!isFolder)
+            return string.Equals(candidate, ruleCandidate, StringComparison.OrdinalIgnoreCase);
+
+        if (string.Equals(candidate, ruleCandidate, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var separator = Path.DirectorySeparatorChar;
+        if (!ruleCandidate.EndsWith(separator))
+            ruleCandidate += separator;
+
+        return candidate.StartsWith(ruleCandidate, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeExcludePath(string path)
+    {
+        var normalized = path.Trim()
+            .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+            .TrimEnd(Path.DirectorySeparatorChar);
+
+        return normalized;
+    }
+
+    private sealed class StringTupleComparer : IEqualityComparer<(string Path, bool IsFolder)>
+    {
+        public static readonly StringTupleComparer Instance = new();
+
+        public bool Equals((string Path, bool IsFolder) x, (string Path, bool IsFolder) y)
+        {
+            return x.IsFolder == y.IsFolder &&
+                   string.Equals(x.Path, y.Path, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public int GetHashCode((string Path, bool IsFolder) obj)
+        {
+            return HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Path), obj.IsFolder);
+        }
     }
 }
 

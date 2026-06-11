@@ -488,7 +488,13 @@
         private static bool LooksLikeYmmpPath(string path) =>
             path.EndsWith(".ymmp", StringComparison.OrdinalIgnoreCase) ||
             path.EndsWith(".ymmpx", StringComparison.OrdinalIgnoreCase);
-        private static string GetExcludePath() => Path.Combine(PluginDirectory, "YMMResourcePackager", "exclude.json");
+        private static string GetGlobalExcludePath() => Path.Combine(PluginDirectory, "YMMResourcePackager", "exclude.json");
+        private static string GetLocalExcludePath(string projectPath)
+        {
+            var directory = Path.GetDirectoryName(projectPath) ?? string.Empty;
+            var baseName = Path.GetFileNameWithoutExtension(projectPath);
+            return Path.Combine(directory, $"{baseName}.exclude.json");
+        }
         private static string GetPackagingOptionsPath() => Path.Combine(PluginDirectory, "YMMResourcePackager", OptionsFileName);
 
         private void LoadPackagingOptions()
@@ -525,22 +531,18 @@
             }
         }
 
-        private static List<ExcludeItem> LoadExcludeItems()
+        private static List<YMMResourcePackager.Shared.ExcludeRule> LoadExcludeItems(string path)
         {
-            var excludePath = GetExcludePath();
-            if (!File.Exists(excludePath))
-                return [];
-
-            try { return JsonSerializer.Deserialize<List<ExcludeItem>>(File.ReadAllText(excludePath)) ?? []; }
-            catch (JsonException) { return []; }
+            return YMMResourcePackager.Shared.ExcludeRuleStore.LoadFromFile(path);
         }
 
-        private static HashSet<string> LoadExcludedFiles()
+        private static void SaveExcludeItems(string path, IEnumerable<YMMResourcePackager.Shared.ExcludeRule> rules)
         {
-            return LoadExcludeItems()
-                .Where(x => x.IsExcluded && !string.IsNullOrWhiteSpace(x.FilePath))
-                .Select(x => x.FilePath)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory))
+                Directory.CreateDirectory(directory);
+
+            File.WriteAllText(path, YMMResourcePackager.Shared.ExcludeRuleStore.SaveToJson(rules));
         }
 
         private void OpenExcludeSetting()
@@ -554,36 +556,20 @@
             try
             {
                 var projectPath = ExpandYmmpxIfNeeded(SelectedProject);
-                string jsonText = File.ReadAllText(projectPath);
-                using JsonDocument doc = JsonDocument.Parse(jsonText);
-
-                var allFiles = YMMResourcePackager.Shared.PackagingRules.FindFilePaths(doc.RootElement)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .Select(f => new ExcludeItem { FilePath = f, IsExcluded = false })
-                    .ToList();
-
-                string excludePath = GetExcludePath();
-
-                if (File.Exists(excludePath))
+                var globalExcludePath = GetGlobalExcludePath();
+                var localExcludePath = GetLocalExcludePath(projectPath);
+                var dlg = new ExcludeSettingWindow(
+                    projectPath,
+                    LoadExcludeItems(globalExcludePath),
+                    LoadExcludeItems(localExcludePath))
                 {
-                    var map = LoadExcludeItems()
-                        .Where(x => !string.IsNullOrWhiteSpace(x.FilePath))
-                        .GroupBy(x => x.FilePath, StringComparer.OrdinalIgnoreCase)
-                        .ToDictionary(g => g.Key, g => g.Last().IsExcluded, StringComparer.OrdinalIgnoreCase);
-
-                    foreach (var item in allFiles)
-                    {
-                        if (map.TryGetValue(item.FilePath, out bool isExcluded))
-                            item.IsExcluded = isExcluded;
-                    }
-                }
-
-                var dlg = new ExcludeSettingWindow(allFiles) { Owner = Application.Current.MainWindow };
+                    Owner = Application.Current.MainWindow
+                };
                 if (dlg.ShowDialog() != true)
                     return;
 
-                Directory.CreateDirectory(Path.GetDirectoryName(excludePath)!);
-                File.WriteAllText(excludePath, JsonSerializer.Serialize(dlg.ExcludeItems, WriteIndentedJsonOptions));
+                SaveExcludeItems(globalExcludePath, dlg.GlobalExcludeItems);
+                SaveExcludeItems(localExcludePath, dlg.LocalExcludeItems);
             }
             catch (Exception ex)
             {
@@ -742,7 +728,11 @@
                 string baseDir = Path.GetDirectoryName(SelectedProject)!;
                 string projectName = Path.GetFileNameWithoutExtension(SelectedProject);
                 outputPath = Path.Combine(baseDir, $"{projectName}.ymmpx");
-                var excludedFiles = LoadExcludedFiles().ToArray();
+                var globalRules = LoadExcludeItems(GetGlobalExcludePath());
+                var localRules = LoadExcludeItems(GetLocalExcludePath(SelectedProject!));
+                var excludedFiles = YMMResourcePackager.Shared.PackagingRules.ResolveExcludedFiles(
+                    SelectedProject,
+                    globalRules.Concat(localRules)).ToArray();
                 var validation = ValidateProjectBeforePack(SelectedProject, excludedFiles);
                 DetectedMaterialCount = validation.DetectedMaterialCount;
                 ExcludedMaterialCount = validation.ExcludedMaterialCount;
@@ -1050,9 +1040,26 @@
 
         private static string GetPreferredUnpackDirectory(string ymmpxPath)
         {
-            var parent = Path.GetDirectoryName(ymmpxPath) ?? string.Empty;
-            var fileName = Path.GetFileNameWithoutExtension(ymmpxPath);
-            return Path.Combine(parent, fileName);
+            var settings = YMMResourcePackager.Shared.AppSettingsStore.Load();
+
+            try
+            {
+                var baseDirectory = YMMResourcePackager.Shared.UnpackerArguments.ResolveUnpackBaseDirectory(
+                    settings.UnpackOutputMode,
+                    settings.CustomUnpackDirectory,
+                    ymmpxPath,
+                    AppDirectories.PluginDirectory);
+
+                var fileName = Path.GetFileNameWithoutExtension(ymmpxPath);
+                return Path.Combine(baseDirectory, fileName);
+            }
+            catch (InvalidOperationException) when (
+                string.Equals(settings.UnpackOutputMode, YMMResourcePackager.Shared.UnpackOutputModes.CustomFolder, StringComparison.Ordinal) &&
+                string.IsNullOrWhiteSpace(settings.CustomUnpackDirectory))
+            {
+                var fileName = Path.GetFileNameWithoutExtension(ymmpxPath);
+                return Path.Combine(AppDirectories.PluginDirectory, fileName);
+            }
         }
 
         private static string CreateTemporaryPackagePath(string finalPath)

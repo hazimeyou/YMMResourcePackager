@@ -5,7 +5,7 @@
 - [PASS] `dotnet restore .\YMMResourceUnpackerApp.sln`
 - [PASS] `dotnet build .\YMMResourceUnpackerApp.sln -c Release`
 - [PASS] `dotnet test .\YMMResourceUnpackerApp.sln -c Release`
-- [PASS] 15 tests passed
+- [PASS] 19 tests passed
 - [PASS] GitHub Actions are pinned to commit SHAs
 - [PASS] YMM4 build libraries are pinned to `v4.53.0.2` and SHA-256 verified
 - [PASS] `release.yml` keeps `draft: true`
@@ -37,7 +37,7 @@ Validated archive contents for `YMMResourcePackager.ymme`:
 
 ## YMM4 実機確認項目
 
-These require manual verification inside a running YMM4 environment. They are intentionally skipped for the current code-only release review.
+These require manual verification inside a running YMM4 environment. They are intentionally skipped for the current code-only release review and still need to be executed on actual YMM4 before shipping.
 
 - [SKIPPED] `.ymme` のインストールが `YMMResourcePackager.ymme` で問題なく進むこと
 - [SKIPPED] `.ymme` インストール後にプラグインが起動できること
