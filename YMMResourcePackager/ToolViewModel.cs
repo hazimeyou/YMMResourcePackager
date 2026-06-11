@@ -408,9 +408,18 @@
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            projectPath = candidates.FirstOrDefault(File.Exists) ?? string.Empty;
-            if (!string.IsNullOrEmpty(projectPath))
+            var existingCandidates = candidates.Where(File.Exists).ToList();
+            if (existingCandidates.Count == 1)
+            {
+                projectPath = existingCandidates[0];
                 return true;
+            }
+
+            if (existingCandidates.Count > 1)
+            {
+                message = "複数の開いているプロジェクトが見つかったため、自動選択を中止しました。ファイルから選択してください。";
+                return false;
+            }
 
             var rawPath = candidates.FirstOrDefault() ?? string.Empty;
             if (!string.IsNullOrEmpty(rawPath))
@@ -967,7 +976,7 @@
             Directory.CreateDirectory(YMMResourcePackager.Shared.AppPaths.TempDirectory);
             return Path.Combine(
                 YMMResourcePackager.Shared.AppPaths.TempDirectory,
-                "YmmpxLibPlugin.ymme");
+                $"YmmpxLibPlugin.{Guid.NewGuid():N}.ymme");
         }
 
         private static async Task InvokeFeaturePackAsync(
