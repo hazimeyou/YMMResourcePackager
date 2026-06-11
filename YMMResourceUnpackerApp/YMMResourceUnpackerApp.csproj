@@ -54,18 +54,6 @@
     <MakeDir Directories="$(PluginOutputDir)" Condition="!Exists('$(PluginOutputDir)')" />
 
     <ItemGroup>
-      <StalePluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.dll" />
-      <StalePluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.Features.dll" />
-      <StalePluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.pdb" />
-      <StalePluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.deps.json" />
-      <StalePluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.exe" />
-      <StalePluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.dll" />
-      <StalePluginFiles Include="$(PluginOutputDir)\YMMResourceUnpackerApp.runtimeconfig.json" />
-      <StalePluginFiles Include="$(PluginOutputDir)\YMMResourcePackager.Shared.dll" />
-    </ItemGroup>
-    <Delete Files="@(StalePluginFiles)" ContinueOnError="true" />
-
-    <ItemGroup>
       <PluginFiles Include="$(PublishDir)$(AssemblyName).exe" />
     </ItemGroup>
 

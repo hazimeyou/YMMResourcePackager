@@ -218,7 +218,7 @@ public static class PackagingRules
         }
     }
 
-    private static string? ResolveMaterialPath(string filePath, string projectDir)
+    public static string? ResolveMaterialPath(string filePath, string projectDir)
     {
         if (string.IsNullOrWhiteSpace(filePath))
             return null;

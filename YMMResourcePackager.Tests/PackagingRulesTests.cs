@@ -119,6 +119,30 @@ public sealed class PackagingRulesTests : IDisposable
     }
 
     [Fact]
+    public void ResolvesFileUriMaterialPath()
+    {
+        var projectDir = Path.Combine(_root, "uri-path");
+        Directory.CreateDirectory(projectDir);
+        var materialPath = Path.Combine(projectDir, "sound.wav");
+        var uri = new Uri(materialPath).AbsoluteUri;
+
+        var resolved = PackagingRules.ResolveMaterialPath(uri, projectDir);
+
+        Assert.Equal(Path.GetFullPath(materialPath), resolved);
+    }
+
+    [Fact]
+    public void IgnoresNonFileUriMaterialPath()
+    {
+        var projectDir = Path.Combine(_root, "uri-path");
+        Directory.CreateDirectory(projectDir);
+
+        var resolved = PackagingRules.ResolveMaterialPath("https://example.com/sound.wav", projectDir);
+
+        Assert.Null(resolved);
+    }
+
+    [Fact]
     public void ExcludedFileCheckIsCaseInsensitive()
     {
         var excluded = new[] { "  Assets/File.TXT  ", "" };

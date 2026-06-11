@@ -73,16 +73,7 @@ namespace YMMResourcePackager
 
         private string? ResolveProjectMaterialPath(string path)
         {
-            if (string.IsNullOrWhiteSpace(path))
-                return null;
-
-            if (Path.IsPathRooted(path))
-                return Path.GetFullPath(path);
-
-            if (string.IsNullOrWhiteSpace(_projectDirectory))
-                return null;
-
-            return Path.GetFullPath(Path.Combine(_projectDirectory, path));
+            return PackagingRules.ResolveMaterialPath(path, _projectDirectory);
         }
 
         private void BtnAddGlobalFile_Click(object sender, RoutedEventArgs e) => AddGlobalEntries(selectFolder: false);

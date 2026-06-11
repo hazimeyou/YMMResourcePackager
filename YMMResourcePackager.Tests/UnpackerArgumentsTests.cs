@@ -41,6 +41,19 @@ public sealed class UnpackerArgumentsTests
     }
 
     [Fact]
+    public void ResolvesRelativeYmmpxFolderModeToPluginFolder()
+    {
+        var pluginDirectory = Path.Combine("C:", "Plugins", "YMMResourcePackager");
+        var result = UnpackerArguments.ResolveUnpackBaseDirectory(
+            UnpackOutputModes.YmmpxFolder,
+            null,
+            "sample.ymmpx",
+            pluginDirectory);
+
+        Assert.Equal(pluginDirectory, result);
+    }
+
+    [Fact]
     public void ResolvesCustomFolderMode()
     {
         var result = UnpackerArguments.ResolveUnpackBaseDirectory(

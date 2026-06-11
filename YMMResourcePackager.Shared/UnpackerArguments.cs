@@ -25,7 +25,10 @@ public static class UnpackerArguments
             return pluginDirectory;
 
         if (string.Equals(mode, UnpackOutputModes.YmmpxFolder, StringComparison.Ordinal))
-            return Path.GetDirectoryName(ymmpxPath) ?? pluginDirectory;
+        {
+            var directory = Path.GetDirectoryName(ymmpxPath);
+            return string.IsNullOrWhiteSpace(directory) ? pluginDirectory : directory;
+        }
 
         if (string.Equals(mode, UnpackOutputModes.CustomFolder, StringComparison.Ordinal))
         {
