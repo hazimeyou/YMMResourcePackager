@@ -192,6 +192,14 @@ public sealed class PackagingRulesTests : IDisposable
     }
 
     [Fact]
+    public void ReturnsEmptyListForBrokenExcludeJson()
+    {
+        var rules = ExcludeRuleStore.LoadFromJson("not json at all");
+
+        Assert.Empty(rules);
+    }
+
+    [Fact]
     public void CreatesTemporaryPackagePathBesideFinalOutput()
     {
         var finalPath = Path.Combine(_root, "MyProject.ymmpx");

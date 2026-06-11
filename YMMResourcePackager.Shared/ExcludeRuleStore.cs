@@ -48,9 +48,17 @@ public static class ExcludeRuleStore
         }
         catch (JsonException)
         {
+            return [];
         }
 
-        return JsonSerializer.Deserialize<List<ExcludeRule>>(json) ?? [];
+        try
+        {
+            return JsonSerializer.Deserialize<List<ExcludeRule>>(json) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 
     public static string SaveToJson(IEnumerable<ExcludeRule> rules)

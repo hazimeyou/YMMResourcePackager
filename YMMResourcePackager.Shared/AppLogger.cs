@@ -7,6 +7,9 @@ public static class AppLogger
 {
     private static readonly object WriteSync = new();
     private static readonly object SettingsSync = new();
+    private static readonly Regex AbsoluteWindowsPathPattern = new(
+        @"(?i)(?<!\w)(?:[A-Z]:\\|\\\\)[^\r\n""']+",
+        RegexOptions.Compiled);
     private static bool? _cachedEnableLogging;
 
     public static void LogInfo(string message) => Write("INFO", message);
@@ -106,7 +109,6 @@ public static class AppLogger
         if (string.IsNullOrEmpty(text))
             return text;
 
-        // Hide absolute Windows paths like C:\foo\bar
-        return Regex.Replace(text, @"[A-Za-z]:\\[^\s\""']+", "<path>");
+        return AbsoluteWindowsPathPattern.Replace(text, "<path>");
     }
 }

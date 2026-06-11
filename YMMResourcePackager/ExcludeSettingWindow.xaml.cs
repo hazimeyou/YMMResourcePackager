@@ -11,14 +11,20 @@ namespace YMMResourcePackager
 
         public ObservableCollection<ExcludeRule> GlobalExcludeItems { get; }
         public ObservableCollection<ExcludeRule> LocalExcludeItems { get; }
+        public ObservableCollection<ProjectMaterialItem> ProjectMaterials { get; }
 
-        public ExcludeSettingWindow(string projectPath, IEnumerable<ExcludeRule> globalItems, IEnumerable<ExcludeRule> localItems)
+        public ExcludeSettingWindow(
+            string projectPath,
+            IEnumerable<string> projectMaterialPaths,
+            IEnumerable<ExcludeRule> globalItems,
+            IEnumerable<ExcludeRule> localItems)
         {
             InitializeComponent();
 
             _projectDirectory = Path.GetDirectoryName(projectPath) ?? string.Empty;
             GlobalExcludeItems = new ObservableCollection<ExcludeRule>(NormalizeRules(globalItems, forceAbsolute: false, string.Empty));
             LocalExcludeItems = new ObservableCollection<ExcludeRule>(NormalizeRules(localItems, forceAbsolute: false, _projectDirectory));
+            ProjectMaterials = new ObservableCollection<ProjectMaterialItem>(BuildProjectMaterials(projectMaterialPaths));
             DataContext = this;
         }
 
@@ -37,47 +43,61 @@ namespace YMMResourcePackager
                 .ToArray();
         }
 
-        private void BtnAddGlobalFile_Click(object sender, RoutedEventArgs e)
-            => AddGlobalEntries(selectFolder: false);
-
-        private void BtnAddGlobalFolder_Click(object sender, RoutedEventArgs e)
-            => AddGlobalEntries(selectFolder: true);
-
-        private void BtnAddLocalFile_Click(object sender, RoutedEventArgs e)
-            => AddLocalEntries(selectFolder: false);
-
-        private void BtnAddLocalFolder_Click(object sender, RoutedEventArgs e)
-            => AddLocalEntries(selectFolder: true);
-
-        private void BtnRemoveGlobalSelected_Click(object sender, RoutedEventArgs e)
-            => RemoveSelectedItems(GlobalExcludeListView, GlobalExcludeItems);
-
-        private void BtnRemoveLocalSelected_Click(object sender, RoutedEventArgs e)
-            => RemoveSelectedItems(LocalExcludeListView, LocalExcludeItems);
-
-        private void BtnSelectAllGlobal_Click(object sender, RoutedEventArgs e)
+        private IEnumerable<ProjectMaterialItem> BuildProjectMaterials(IEnumerable<string> projectMaterialPaths)
         {
-            SetAll(GlobalExcludeItems, true);
-            GlobalExcludeListView.Items.Refresh();
+            return projectMaterialPaths
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(path => new ProjectMaterialItem
+                {
+                    Path = path,
+                    Exists = MaterialExists(path)
+                })
+                .OrderBy(x => x.Path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
         }
 
-        private void BtnDeselectAllGlobal_Click(object sender, RoutedEventArgs e)
+        private bool MaterialExists(string path)
         {
-            SetAll(GlobalExcludeItems, false);
-            GlobalExcludeListView.Items.Refresh();
+            try
+            {
+                var resolved = ResolveProjectMaterialPath(path);
+                return resolved is not null && File.Exists(resolved);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
-        private void BtnSelectAllLocal_Click(object sender, RoutedEventArgs e)
+        private string? ResolveProjectMaterialPath(string path)
         {
-            SetAll(LocalExcludeItems, true);
-            LocalExcludeListView.Items.Refresh();
+            if (string.IsNullOrWhiteSpace(path))
+                return null;
+
+            if (Path.IsPathRooted(path))
+                return Path.GetFullPath(path);
+
+            if (string.IsNullOrWhiteSpace(_projectDirectory))
+                return null;
+
+            return Path.GetFullPath(Path.Combine(_projectDirectory, path));
         }
 
-        private void BtnDeselectAllLocal_Click(object sender, RoutedEventArgs e)
-        {
-            SetAll(LocalExcludeItems, false);
-            LocalExcludeListView.Items.Refresh();
-        }
+        private void BtnAddGlobalFile_Click(object sender, RoutedEventArgs e) => AddGlobalEntries(selectFolder: false);
+        private void BtnAddGlobalFolder_Click(object sender, RoutedEventArgs e) => AddGlobalEntries(selectFolder: true);
+        private void BtnAddLocalFile_Click(object sender, RoutedEventArgs e) => AddLocalEntries(selectFolder: false);
+        private void BtnAddLocalFolder_Click(object sender, RoutedEventArgs e) => AddLocalEntries(selectFolder: true);
+        private void BtnRemoveGlobalSelected_Click(object sender, RoutedEventArgs e) => RemoveSelectedItems(GlobalExcludeListView, GlobalExcludeItems);
+        private void BtnRemoveLocalSelected_Click(object sender, RoutedEventArgs e) => RemoveSelectedItems(LocalExcludeListView, LocalExcludeItems);
+        private void BtnAddProjectToGlobal_Click(object sender, RoutedEventArgs e) => AddSelectedProjectItems(toGlobal: true);
+        private void BtnAddProjectToLocal_Click(object sender, RoutedEventArgs e) => AddSelectedProjectItems(toGlobal: false);
+
+        private void BtnSelectAllGlobal_Click(object sender, RoutedEventArgs e) => ToggleAll(GlobalExcludeItems, true, GlobalExcludeListView);
+        private void BtnDeselectAllGlobal_Click(object sender, RoutedEventArgs e) => ToggleAll(GlobalExcludeItems, false, GlobalExcludeListView);
+        private void BtnSelectAllLocal_Click(object sender, RoutedEventArgs e) => ToggleAll(LocalExcludeItems, true, LocalExcludeListView);
+        private void BtnDeselectAllLocal_Click(object sender, RoutedEventArgs e) => ToggleAll(LocalExcludeItems, false, LocalExcludeListView);
 
         private void BtnOk_Click(object sender, RoutedEventArgs e)
         {
@@ -89,6 +109,27 @@ namespace YMMResourcePackager
         {
             DialogResult = false;
             Close();
+        }
+
+        private void AddSelectedProjectItems(bool toGlobal)
+        {
+            var target = toGlobal ? GlobalExcludeItems : LocalExcludeItems;
+            var selectedItems = ProjectMaterialListView.SelectedItems.Cast<ProjectMaterialItem>().ToArray();
+            foreach (var item in selectedItems)
+            {
+                if (toGlobal)
+                {
+                    var absolutePath = ResolveProjectMaterialPath(item.Path);
+                    if (string.IsNullOrWhiteSpace(absolutePath))
+                        continue;
+
+                    AddRule(target, absolutePath, isFolder: false, forceAbsolute: true);
+                }
+                else
+                {
+                    AddRule(target, item.Path, isFolder: false, forceAbsolute: false);
+                }
+            }
         }
 
         private void AddGlobalEntries(bool selectFolder)
@@ -179,15 +220,28 @@ namespace YMMResourcePackager
                 .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 
             if (forceAbsolute)
-                normalized = Path.GetFullPath(normalized);
+            {
+                normalized = Path.IsPathRooted(normalized)
+                    ? Path.GetFullPath(normalized)
+                    : Path.GetFullPath(Path.Combine(projectDirectory, normalized));
+            }
             else if (!string.IsNullOrWhiteSpace(projectDirectory))
+            {
                 normalized = MakeProjectRelativeIfPossible(normalized, projectDirectory);
+            }
 
-            normalized = normalized.TrimEnd(Path.DirectorySeparatorChar);
-            if (!isFolder)
-                return normalized;
+            var trimmed = normalized.TrimEnd(Path.DirectorySeparatorChar);
+            if (isFolder)
+            {
+                var root = Path.GetPathRoot(normalized);
+                if (!string.IsNullOrWhiteSpace(root) &&
+                    string.Equals(trimmed, root.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
+                {
+                    return root;
+                }
+            }
 
-            return normalized;
+            return trimmed;
         }
 
         private static string MakeProjectRelativeIfPossible(string path, string projectDirectory)
@@ -215,10 +269,12 @@ namespace YMMResourcePackager
                 items.Remove(item);
         }
 
-        private static void SetAll(IEnumerable<ExcludeRule> items, bool isExcluded)
+        private static void ToggleAll(IEnumerable<ExcludeRule> items, bool isExcluded, System.Windows.Controls.ListView listView)
         {
             foreach (var item in items)
                 item.IsExcluded = isExcluded;
+
+            listView.Items.Refresh();
         }
 
         private sealed class ExcludeRuleKeyComparer : IEqualityComparer<(string Path, bool IsFolder)>
@@ -236,5 +292,12 @@ namespace YMMResourcePackager
                 return HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Path), obj.IsFolder);
             }
         }
+    }
+
+    public sealed class ProjectMaterialItem
+    {
+        public string Path { get; set; } = string.Empty;
+        public bool Exists { get; set; }
+        public string StatusText => Exists ? "存在" : "未発見";
     }
 }

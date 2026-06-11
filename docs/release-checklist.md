@@ -5,7 +5,7 @@
 - [PASS] `dotnet restore .\YMMResourceUnpackerApp.sln`
 - [PASS] `dotnet build .\YMMResourceUnpackerApp.sln -c Release`
 - [PASS] `dotnet test .\YMMResourceUnpackerApp.sln -c Release`
-- [PASS] 19 tests passed
+- [PASS] 20 tests passed
 - [PASS] GitHub Actions are pinned to commit SHAs
 - [PASS] YMM4 build libraries are pinned to `v4.53.0.2` and SHA-256 verified
 - [PASS] `release.yml` keeps `draft: true`

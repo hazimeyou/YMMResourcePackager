@@ -34,7 +34,7 @@ public static class PackagingRules
     public static HashSet<string> ResolveExcludedFiles(string projectPath, IEnumerable<ExcludeRule>? excludedRules)
     {
         var projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
-        var files = LoadProjectFilePaths(projectPath)
+        var files = GetProjectFilePaths(projectPath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -92,7 +92,7 @@ public static class PackagingRules
     public static PackagingValidationResult ValidateProjectBeforePack(string projectPath, IEnumerable<ExcludeRule>? excludedRules)
     {
         var excluded = ResolveExcludedFiles(projectPath, excludedRules);
-        var files = LoadProjectFilePaths(projectPath);
+        var files = GetProjectFilePaths(projectPath);
 
         var missingCount = 0;
         var projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
@@ -108,7 +108,7 @@ public static class PackagingRules
 
         return new PackagingValidationResult
         {
-            DetectedMaterialCount = files.Length,
+            DetectedMaterialCount = files.Count,
             ExcludedMaterialCount = excluded.Count,
             MissingMaterialCount = missingCount
         };
@@ -117,7 +117,7 @@ public static class PackagingRules
     public static PackagingValidationResult ValidateProjectBeforePack(string projectPath, IEnumerable<string?>? excludedFiles)
     {
         var excluded = NormalizeExcludedFiles(excludedFiles);
-        var files = LoadProjectFilePaths(projectPath);
+        var files = GetProjectFilePaths(projectPath);
         var projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
 
         var missingCount = 0;
@@ -133,7 +133,7 @@ public static class PackagingRules
 
         return new PackagingValidationResult
         {
-            DetectedMaterialCount = files.Length,
+            DetectedMaterialCount = files.Count,
             ExcludedMaterialCount = files.Count(excluded.Contains),
             MissingMaterialCount = missingCount
         };
@@ -231,6 +231,11 @@ public static class PackagingRules
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    public static IReadOnlyList<string> GetProjectFilePaths(string projectPath)
+    {
+        return LoadProjectFilePaths(projectPath);
     }
 
     private static IReadOnlyList<string> BuildPathCandidates(string path, string projectDir)

@@ -2,22 +2,28 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="除外設定"
-        Height="560" Width="760"
+        Height="620"
+        Width="860"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">
         <TextBlock DockPanel.Dock="Top"
                    Margin="0,0,0,10"
-                   Text="グローバル除外は全プロジェクト共通です。ローカル除外は現在のプロジェクトだけに保存されます。"
+                   Text="グローバル除外は全プロジェクト共通です。ローカル除外は現在のプロジェクトだけに保存されます。プロジェクト素材一覧から、存在しない素材も選んで除外できます。"
                    TextWrapping="Wrap" />
 
         <StackPanel DockPanel.Dock="Bottom"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,10,0,0">
-            <Button Name="BtnOk" Content="OK" Click="BtnOk_Click"
-                    Width="85" Margin="0,0,6,0"/>
-            <Button Name="BtnCancel" Content="キャンセル" Click="BtnCancel_Click"
+            <Button Name="BtnOk"
+                    Content="OK"
+                    Click="BtnOk_Click"
+                    Width="85"
+                    Margin="0,0,6,0"/>
+            <Button Name="BtnCancel"
+                    Content="キャンセル"
+                    Click="BtnCancel_Click"
                     Width="85"/>
         </StackPanel>
 
@@ -48,7 +54,7 @@
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
                                 <GridViewColumn Header="種別" Width="90" DisplayMemberBinding="{Binding Path=KindText}"/>
-                                <GridViewColumn Header="パス" Width="530" DisplayMemberBinding="{Binding Path=Path}"/>
+                                <GridViewColumn Header="パス" Width="600" DisplayMemberBinding="{Binding Path=Path}"/>
                             </GridView>
                         </ListView.View>
                     </ListView>
@@ -81,7 +87,30 @@
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
                                 <GridViewColumn Header="種別" Width="90" DisplayMemberBinding="{Binding Path=KindText}"/>
-                                <GridViewColumn Header="パス" Width="530" DisplayMemberBinding="{Binding Path=Path}"/>
+                                <GridViewColumn Header="パス" Width="600" DisplayMemberBinding="{Binding Path=Path}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="プロジェクト素材">
+                <DockPanel Margin="0,10,0,0">
+                    <StackPanel DockPanel.Dock="Top"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Left"
+                                Margin="0,0,0,10">
+                        <Button Content="選択をローカルへ追加" Click="BtnAddProjectToLocal_Click" Margin="0,0,6,0"/>
+                        <Button Content="選択をグローバルへ追加" Click="BtnAddProjectToGlobal_Click"/>
+                    </StackPanel>
+
+                    <ListView x:Name="ProjectMaterialListView"
+                              ItemsSource="{Binding ProjectMaterials}"
+                              SelectionMode="Extended">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="状態" Width="90" DisplayMemberBinding="{Binding Path=StatusText}"/>
+                                <GridViewColumn Header="パス" Width="570" DisplayMemberBinding="{Binding Path=Path}"/>
                             </GridView>
                         </ListView.View>
                     </ListView>

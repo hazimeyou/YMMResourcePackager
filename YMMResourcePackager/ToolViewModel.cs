@@ -13,6 +13,7 @@
         private int _excludedMaterialCount;
         private int _missingMaterialCount;
         private bool _startupPrerequisitePromptHandled;
+        private string _selectedProjectStoragePath = string.Empty;
         private string _selectedUnpackOutputMode = YMMResourcePackager.Shared.UnpackOutputModes.PluginFolder;
         private string _customUnpackDirectory = string.Empty;
         private static readonly UnpackOutputOption[] UnpackOutputOptionsInternal =
@@ -384,6 +385,7 @@
                 }
 
                 SelectedProject = projectPath;
+                _selectedProjectStoragePath = projectPath;
                 Status = $"選択: {SelectedProject}";
                 Progress = 0;
                 YMMResourcePackager.Shared.AppLogger.LogInfo("Opened project selected from current project.");
@@ -495,6 +497,13 @@
             var baseName = Path.GetFileNameWithoutExtension(projectPath);
             return Path.Combine(directory, $"{baseName}.exclude.json");
         }
+
+        private string GetLocalExcludeStoragePath(string selectedProjectPath)
+        {
+            return !string.IsNullOrWhiteSpace(_selectedProjectStoragePath)
+                ? _selectedProjectStoragePath
+                : selectedProjectPath;
+        }
         private static string GetPackagingOptionsPath() => Path.Combine(PluginDirectory, "YMMResourcePackager", OptionsFileName);
 
         private void LoadPackagingOptions()
@@ -555,11 +564,13 @@
 
             try
             {
-                var projectPath = ExpandYmmpxIfNeeded(SelectedProject);
+                var selectedProjectPath = SelectedProject;
+                var projectPath = ExpandYmmpxIfNeeded(selectedProjectPath);
                 var globalExcludePath = GetGlobalExcludePath();
-                var localExcludePath = GetLocalExcludePath(projectPath);
+                var localExcludePath = GetLocalExcludePath(GetLocalExcludeStoragePath(selectedProjectPath));
                 var dlg = new ExcludeSettingWindow(
                     projectPath,
+                    YMMResourcePackager.Shared.PackagingRules.GetProjectFilePaths(projectPath),
                     LoadExcludeItems(globalExcludePath),
                     LoadExcludeItems(localExcludePath))
                 {
@@ -587,6 +598,7 @@
             if (dlg.ShowDialog() == true)
             {
                 SelectedProject = dlg.FileName;
+                _selectedProjectStoragePath = dlg.FileName;
                 Status = $"選択: {SelectedProject}";
                 Progress = 0;
                 YMMResourcePackager.Shared.AppLogger.LogInfo("Project selected from file dialog.");
@@ -699,6 +711,7 @@
                 YMMResourcePackager.Shared.AppLogger.LogInfo("Pack requested.");
                 if (SelectedProject.EndsWith(".ymmpx", StringComparison.OrdinalIgnoreCase))
                 {
+                    _selectedProjectStoragePath = SelectedProject;
                     SelectedProject = ExpandYmmpxIfNeeded(SelectedProject);
                     Status = $"展開しました: {SelectedProject}";
                     YMMResourcePackager.Shared.AppLogger.LogInfo("Selected ymmpx was expanded instead of packaged.");
@@ -729,7 +742,7 @@
                 string projectName = Path.GetFileNameWithoutExtension(SelectedProject);
                 outputPath = Path.Combine(baseDir, $"{projectName}.ymmpx");
                 var globalRules = LoadExcludeItems(GetGlobalExcludePath());
-                var localRules = LoadExcludeItems(GetLocalExcludePath(SelectedProject!));
+                var localRules = LoadExcludeItems(GetLocalExcludePath(GetLocalExcludeStoragePath(SelectedProject!)));
                 var excludedFiles = YMMResourcePackager.Shared.PackagingRules.ResolveExcludedFiles(
                     SelectedProject,
                     globalRules.Concat(localRules)).ToArray();
