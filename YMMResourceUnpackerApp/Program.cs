@@ -130,7 +130,23 @@ namespace YMMResourceUnpackerApp
                 return true;
             }
 
-            AppLogger.LogError("Project launch failed: association and direct YMM path are both unavailable.");
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{ymmpPath}\"",
+                    UseShellExecute = true
+                });
+                AppLogger.LogInfo("Project revealed in Explorer because .ymmp launch was unavailable.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Project launch failed: association, direct YMM path, and Explorer are all unavailable.");
+                AppLogger.LogException(ex, "Explorer fallback launch failed.");
+            }
+
             Console.WriteLine("YMM の起動先が見つかりませんでした。");
             Console.WriteLine("Enterキーで終了します...");
             Console.ReadLine();

@@ -3,8 +3,9 @@
     public class ToolViewModel : BaseViewModel
     {
         private const string OptionsFileName = "packaging_options.json";
-        private const string YmmpxLibPluginDownloadUrl = "https://github.com/hazimeyou/YmmpxLib/releases/download/v0.3.0/YmmpxLibPlugin.ymme";
-        private const string YmmpxLibPluginSha256 = "cc9af0b7541fbd9552f93e2f8573b65c5ba80b2e71572093deace67f456ffaa8";
+        private const string YmmpxLibPluginAssetName = "YmmpxLibPlugin.ymme";
+        private const string YmmpxLibPluginLatestDownloadUrl = "https://github.com/hazimeyou/YmmpxLib/releases/latest/download/YmmpxLibPlugin.ymme";
+        private const string YmmpxLibPluginOverrideEnvironmentVariable = "YMMRESOURCEPACKAGER_YMMPXLIBPLUGIN_PATH";
         private static readonly JsonSerializerOptions WriteIndentedJsonOptions = new() { WriteIndented = true };
         private string? _selectedProject;
         private readonly AsyncRelayCommand _packageCommand;
@@ -261,12 +262,13 @@
 
             var dialog = new WarningPromptWindow
             {
-                Owner = Application.Current.MainWindow,
                 WindowTitle = windowTitle,
                 Message = message,
                 YesButtonText = yesButtonText,
                 NoButtonText = noButtonText
             };
+
+            SetOwnerIfVisible(dialog);
 
             var result = dialog.ShowDialog() == true;
             if (dialog.SuppressThisWarning)
@@ -581,10 +583,8 @@
                     projectPath,
                     YMMResourcePackager.Shared.PackagingRules.GetProjectFilePaths(projectPath),
                     LoadExcludeItems(globalExcludePath),
-                    LoadExcludeItems(localExcludePath))
-                {
-                    Owner = Application.Current.MainWindow
-                };
+                    LoadExcludeItems(localExcludePath));
+                SetOwnerIfVisible(dlg);
                 if (dlg.ShowDialog() != true)
                     return;
 
@@ -820,6 +820,8 @@
                     "完了",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
+
+                OpenPathInExplorer(outputPath);
             }
             catch (Exception ex)
             {
@@ -879,21 +881,8 @@
                     return false;
                 }
 
-                YMMResourcePackager.Shared.AppLogger.LogInfo("YmmpxLib Shared Library download started.");
-                using var http = new System.Net.Http.HttpClient
-                {
-                    Timeout = TimeSpan.FromSeconds(30)
-                };
-                using var response = await http.GetAsync(
-                    YmmpxLibPluginDownloadUrl,
-                    System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
-                response.EnsureSuccessStatusCode();
-                await using (var fs = File.Create(ymmePath))
-                {
-                    await response.Content.CopyToAsync(fs);
-                }
-                YMMResourcePackager.Shared.FileIntegrity.VerifySha256(ymmePath, YmmpxLibPluginSha256);
-                YMMResourcePackager.Shared.AppLogger.LogInfo("YmmpxLib Shared Library download completed.");
+                var sourceDescription = await AcquireYmmpxLibPluginPackageAsync(ymmePath);
+                YMMResourcePackager.Shared.AppLogger.LogInfo($"YmmpxLib Shared Library package prepared from {sourceDescription}.");
 
                 using var process = Process.Start(new ProcessStartInfo
                 {
@@ -924,7 +913,7 @@
             {
                 YMMResourcePackager.Shared.AppLogger.LogWarning("YmmpxLib Shared Library download timeout.");
                 MessageBox.Show(
-                    "YmmpxLib Shared Library のダウンロードがタイムアウトしました。(30秒)\nネットワーク接続を確認して再試行してください。",
+                    "YmmpxLib Shared Library の取得がタイムアウトしました。(30秒)\nネットワーク接続を確認して再試行してください。",
                     "エラー",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
@@ -937,7 +926,7 @@
                     : $"HTTP {(int)ex.StatusCode} ({ex.StatusCode})";
                 YMMResourcePackager.Shared.AppLogger.LogWarning($"YmmpxLib Shared Library download failed: {detail}");
                 MessageBox.Show(
-                    $"YmmpxLib Shared Library のダウンロードに失敗しました。\n{detail}",
+                    $"YmmpxLib Shared Library の取得に失敗しました。\n{detail}",
                     "エラー",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
@@ -976,7 +965,95 @@
             Directory.CreateDirectory(YMMResourcePackager.Shared.AppPaths.TempDirectory);
             return Path.Combine(
                 YMMResourcePackager.Shared.AppPaths.TempDirectory,
-                $"YmmpxLibPlugin.{Guid.NewGuid():N}.ymme");
+                YmmpxLibPluginAssetName);
+        }
+
+        private static void SetOwnerIfVisible(Window window)
+        {
+            var owner = Application.Current?.MainWindow;
+            if (owner is null || !owner.IsLoaded || !owner.IsVisible || ReferenceEquals(owner, window))
+                return;
+
+            window.Owner = owner;
+        }
+
+        private static async Task<string> AcquireYmmpxLibPluginPackageAsync(string destinationPath)
+        {
+            var localOverridePath = GetLocalYmmpxLibPluginPath();
+            if (File.Exists(localOverridePath))
+            {
+                File.Copy(localOverridePath, destinationPath, overwrite: true);
+                return localOverridePath;
+            }
+
+            YMMResourcePackager.Shared.AppLogger.LogInfo("YmmpxLib Shared Library download started from latest release URL.");
+            using var http = new System.Net.Http.HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(30)
+            };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("YMMResourcePackager/1.0");
+
+            using var response = await http.GetAsync(
+                YmmpxLibPluginLatestDownloadUrl,
+                System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
+            response.EnsureSuccessStatusCode();
+
+            await using (var fs = File.Create(destinationPath))
+            {
+                await response.Content.CopyToAsync(fs);
+            }
+
+            YMMResourcePackager.Shared.AppLogger.LogInfo("YmmpxLib Shared Library download completed.");
+            return YmmpxLibPluginLatestDownloadUrl;
+        }
+
+        private static string GetLocalYmmpxLibPluginPath()
+        {
+            var overridePath = Environment.GetEnvironmentVariable(YmmpxLibPluginOverrideEnvironmentVariable);
+            if (!string.IsNullOrWhiteSpace(overridePath))
+                return overridePath.Trim();
+
+            var downloadsDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Downloads");
+            return Path.Combine(downloadsDir, YmmpxLibPluginAssetName);
+        }
+
+        private static void OpenPathInExplorer(string path)
+        {
+            try
+            {
+                var filePath = Path.GetFullPath(path);
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{filePath}\"",
+                    UseShellExecute = true
+                });
+                YMMResourcePackager.Shared.AppLogger.LogInfo($"Explorer opened for {filePath}.");
+            }
+            catch (Exception ex)
+            {
+                YMMResourcePackager.Shared.AppLogger.LogWarning($"Failed to open Explorer for output path: {ex.Message}");
+
+                try
+                {
+                    var directory = Path.GetDirectoryName(Path.GetFullPath(path));
+                    if (string.IsNullOrWhiteSpace(directory))
+                        return;
+
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = directory,
+                        UseShellExecute = true
+                    });
+                    YMMResourcePackager.Shared.AppLogger.LogInfo($"Output folder opened for {directory}.");
+                }
+                catch (Exception folderEx)
+                {
+                    YMMResourcePackager.Shared.AppLogger.LogWarning($"Failed to open output folder: {folderEx.Message}");
+                }
+            }
         }
 
         private static async Task InvokeFeaturePackAsync(

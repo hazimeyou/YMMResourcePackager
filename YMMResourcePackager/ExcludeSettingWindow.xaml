@@ -6,7 +6,9 @@
         Width="860"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="12">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <DockPanel Margin="12">
         <TextBlock DockPanel.Dock="Top"
                    Margin="0,0,0,10"
                    Text="グローバル除外は全プロジェクト共通です。ローカル除外は現在のプロジェクトだけに保存されます。プロジェクト素材一覧から、存在しない素材も選んで除外できます。"
@@ -117,5 +119,6 @@
                 </DockPanel>
             </TabItem>
         </TabControl>
-    </DockPanel>
+        </DockPanel>
+    </ScrollViewer>
 </Window>
