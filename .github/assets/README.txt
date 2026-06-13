@@ -1,12 +1,12 @@
-YMM4素材同梱プラグイン
+YMM4同梱展開プラグイン
 
-YMM4素材同梱プラグインは、YukkuriMovieMaker4 のプロジェクト素材をまとめて管理・共有するためのプラグインです。
+YMM4同梱展開プラグインは、YukkuriMovieMaker4 のプロジェクト素材をまとめて管理・共有するためのプラグインです。
 
 インストール方法
 
 1. GitHub Releases から `YMMResourcePackager.ymme` をダウンロードします。
 2. ダウンロードした `.ymme` を起動してインストールします。
-3. YMM4 のツールから「素材同梱プラグイン」を起動します。
+3. YMM4 のツールから「同梱展開プラグイン」を起動します。
 
 YmmpxLibPlugin が必要な場合
 
