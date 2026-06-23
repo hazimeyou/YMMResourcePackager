@@ -8,7 +8,7 @@
         private static readonly JsonSerializerOptions WriteIndentedJsonOptions = new() { WriteIndented = true };
         private string? _selectedProject;
         private readonly AsyncRelayCommand _packageCommand;
-        private bool _enableLogging;
+        private bool _isLoggingEnabled;
         private int _detectedMaterialCount;
         private int _excludedMaterialCount;
         private int _missingMaterialCount;
@@ -63,20 +63,26 @@
             }
         }
 
-        public bool EnableLogging
+        public bool IsLoggingEnabled
         {
-            get => _enableLogging;
+            get => _isLoggingEnabled;
             set
             {
-                if (!SetProperty(ref _enableLogging, value))
+                if (!SetProperty(ref _isLoggingEnabled, value))
                     return;
 
                 var settings = YMMResourcePackager.Shared.AppSettingsStore.Load();
                 settings.EnableLogging = value;
                 YMMResourcePackager.Shared.AppSettingsStore.Save(settings);
                 YMMResourcePackager.Shared.AppLogger.RefreshSettingsCache();
-                YMMResourcePackager.Shared.AppLogger.LogInfo($"Logging setting changed: EnableLogging={value}");
+                YMMResourcePackager.Shared.PackagingRules.Log($"[Log] Logging enabled: {value}");
             }
+        }
+
+        public bool EnableLogging
+        {
+            get => IsLoggingEnabled;
+            set => IsLoggingEnabled = value;
         }
 
         public IEnumerable<UnpackOutputOption> UnpackOutputOptions => UnpackOutputOptionsInternal;
@@ -140,7 +146,7 @@
         {
             var settings = YMMResourcePackager.Shared.AppSettingsStore.Load();
             LoadPackagingOptions();
-            _enableLogging = settings.EnableLogging;
+            _isLoggingEnabled = settings.EnableLogging;
             _selectedUnpackOutputMode = NormalizeUnpackOutputMode(settings.UnpackOutputMode);
             _customUnpackDirectory = settings.CustomUnpackDirectory ?? string.Empty;
             _packageCommand = new AsyncRelayCommand(PackageProjectAsync, CanPackageProject);
@@ -737,8 +743,9 @@
                     return;
                 }
 
-                Status = "素材同梱を開始します...";
+                Status = "同梱展開を開始します...";
                 Progress = 0;
+                Log("[Start] 同梱展開開始");
                 YMMResourcePackager.Shared.AppLogger.LogInfo("Pack started.");
 
                 outputPath = YMMResourcePackager.Shared.PackagerPaths.GetProjectOutputPath(SelectedProject);
@@ -764,6 +771,7 @@
                     if (proceed != MessageBoxResult.Yes)
                     {
                         Status = "事前チェックでキャンセルされました。";
+                        Log("[End] キャンセル");
                         return;
                     }
                 }
@@ -776,6 +784,7 @@
                     if (r == MessageBoxResult.Cancel)
                     {
                         Status = "キャンセルされました。";
+                        Log("[End] キャンセル");
                         return;
                     }
                     if (r == MessageBoxResult.No)
@@ -810,6 +819,7 @@
                 temporaryOutputPath = null;
                 Progress = 100;
                 Status = $"完了: {outputPath}";
+                Log("[End] 完了");
                 YMMResourcePackager.Shared.AppLogger.LogInfo("Pack completed successfully.");
                 MessageBox.Show(
                     $"パッケージ化が完了しました。\n\n出力: {outputPath}\n検出素材数: {DetectedMaterialCount}\n除外数: {ExcludedMaterialCount}\n見つからない素材数: {MissingMaterialCount}",
@@ -829,6 +839,7 @@
 
                 Status = $"エラー: {ex.Message}";
                 Progress = 0;
+                Log("[End] エラー");
                 YMMResourcePackager.Shared.AppLogger.LogException(ex, "Pack failed.");
                 MessageBox.Show(ex.Message, "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -1120,6 +1131,11 @@
 
         private static string GetLegacyYmmpxLibFolderPath() =>
             YMMResourcePackager.Shared.PackagingRules.GetLegacyYmmpxLibFolderPath(AppDirectories.PluginDirectory);
+
+        private static void Log(string message)
+        {
+            YMMResourcePackager.Shared.PackagingRules.Log(message);
+        }
 
         private static YMMResourcePackager.Shared.PackagingValidationResult ValidateProjectBeforePack(string projectPath, string[] excludedFiles)
         {

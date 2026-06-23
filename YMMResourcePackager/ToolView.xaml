@@ -9,7 +9,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="10" VerticalAlignment="Top">
-            <TextBlock Text="素材同梱プラグイン" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+            <TextBlock Text="同梱展開プラグイン" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
 
             <Grid Margin="0,0,0,5">
                 <Grid.RowDefinitions>
@@ -36,7 +36,7 @@
                       IsChecked="{Binding IncludeProjectUiSettings}"
                       Margin="0,0,0,8"/>
 
-            <Button Content="同梱 / 展開"
+            <Button Content="同梱展開 / 展開"
                     Command="{Binding PackageCommand}"
                     Margin="0,0,0,5"
                     HorizontalAlignment="Stretch"/>
