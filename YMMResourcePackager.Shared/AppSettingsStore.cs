@@ -4,10 +4,12 @@ using System.Text.Json;
 
 namespace YMMResourcePackager.Shared;
 
+// アプリ設定を、複数プロセスからでも壊れにくい形で保存する。
 public static class AppSettingsStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private static readonly object Sync = new();
+    // 同一設定ファイルへの同時書き込みを避けるためのプロセス間ロック。
     private static readonly Mutex ProcessMutex = new(false, BuildMutexName());
 
     public static AppLoggingSettings Load()
@@ -74,6 +76,7 @@ public static class AppSettingsStore
         Directory.CreateDirectory(AppPaths.BaseDirectory);
         var json = JsonSerializer.Serialize(settings, JsonOptions);
         var tempPath = AppPaths.SettingsPath + ".tmp";
+        // 一旦テンポラリへ書いてから差し替えることで、途中失敗による破損を避ける。
         File.WriteAllText(tempPath, json, Encoding.UTF8);
 
         if (File.Exists(AppPaths.SettingsPath))
@@ -117,6 +120,7 @@ public static class AppSettingsStore
 
     private static string BuildMutexName()
     {
+        // 設定ファイルの実体パスをハッシュ化し、環境ごとに一意の名前にする。
         var normalized = Path.GetFullPath(AppPaths.SettingsPath).ToLowerInvariant();
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
         return "Global\\YMMResourcePackager.Settings." + Convert.ToHexString(bytes);

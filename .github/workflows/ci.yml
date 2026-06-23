@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - codex/release-1.0.0-final
   pull_request:
 
 jobs:

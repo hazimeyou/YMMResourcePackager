@@ -34,6 +34,7 @@ public static class PackagingRules
     public static HashSet<string> ResolveExcludedFiles(string projectPath, IEnumerable<ExcludeRule>? excludedRules)
     {
         var projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
+        // プロジェクト内の素材一覧を正規化し、除外ルールに一致するものだけを集計する。
         var files = GetProjectFilePaths(projectPath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -53,6 +54,7 @@ public static class PackagingRules
         if (string.IsNullOrWhiteSpace(filePath))
             return false;
 
+        // ルールは相対パス・絶対パスの両方で比較できるよう、候補を複数生成して照合する。
         var rules = NormalizeExcludeRules(excludedRules).Where(x => x.IsExcluded).ToArray();
         if (rules.Length == 0)
             return false;
@@ -96,6 +98,7 @@ public static class PackagingRules
 
         var missingCount = 0;
         var projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
+        // 除外されない素材だけを実ファイルの存在確認にかける。
         foreach (var file in files)
         {
             if (excluded.Contains(file))
@@ -144,6 +147,7 @@ public static class PackagingRules
         var dir = Path.GetDirectoryName(path) ?? string.Empty;
         var name = Path.GetFileNameWithoutExtension(path);
         var ext = Path.GetExtension(path);
+        // 既存の連番を走査して、次に使える末尾番号を安定して決める。
         var pattern = $"^{System.Text.RegularExpressions.Regex.Escape(name)}_(\\d+){System.Text.RegularExpressions.Regex.Escape(ext)}$";
         var max = 0;
 
@@ -188,6 +192,7 @@ public static class PackagingRules
 
     public static IEnumerable<string> FindFilePaths(JsonElement root)
     {
+        // JSON 全体を深さ優先で走査し、FilePath プロパティだけを拾う。
         var stack = new Stack<JsonElement>();
         stack.Push(root);
         while (stack.Count > 0)
@@ -253,6 +258,7 @@ public static class PackagingRules
         if (!TryNormalizeInputPath(path, out var normalizedInput))
             return candidates;
 
+        // そのままの文字列、絶対パス、プロジェクト基準の解決結果を順に候補へ入れる。
         var normalized = NormalizeExcludePath(normalizedInput);
         if (!string.IsNullOrWhiteSpace(normalized))
             candidates.Add(normalized);

@@ -1,5 +1,6 @@
 namespace YMMResourcePackager.Shared;
 
+// プラグイン実行環境に依存する、ベースパスの解決をまとめる。
 public static class AppPaths
 {
     public static string BaseDirectory => ResolvePluginDirectory();
@@ -12,6 +13,7 @@ public static class AppPaths
     {
         try
         {
+            // 実行場所から、YMM の plugin 配下かどうかを判定して補正する。
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
             if (string.IsNullOrWhiteSpace(baseDir))
                 return Directory.GetCurrentDirectory();

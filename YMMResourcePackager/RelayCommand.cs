@@ -19,6 +19,7 @@
 
         public bool CanExecute(object? parameter) => _canExecute?.Invoke() ?? true;
 
+        // 同期コマンドは、そのまま委譲するだけにして見通しを保つ。
         public void Execute(object? parameter) => _execute();
     }
 }

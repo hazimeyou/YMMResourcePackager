@@ -11,6 +11,7 @@ namespace YMMResourceUnpackerApp
     {
         static int Main(string[] args)
         {
+            // ログ関連のスイッチは先に抜き出して、残りの引数だけで本処理を進める。
             var remainingArgs = HandleLoggingSwitches(args);
             if (remainingArgs.Length == 0 && args.Length > 0)
                 return 1;
@@ -73,6 +74,7 @@ namespace YMMResourceUnpackerApp
 
             try
             {
+                // 展開先を決めてから、必要ならフォルダーを作る。
                 var unpackBaseDir = ResolveUnpackBaseDirectory(ymmpxPath, appDir);
                 Directory.CreateDirectory(unpackBaseDir);
                 var desiredDir = Path.Combine(unpackBaseDir, baseName);
@@ -204,7 +206,8 @@ namespace YMMResourceUnpackerApp
             service = default;
             error = string.Empty;
 
-            var featurePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "YMMResourcePackager.Features.dll");
+            // features DLL を読み込み、必要な静的メソッドだけ反射で抜き出す。
+            var featurePath = YMMResourcePackager.Shared.PackagerPaths.GetFeatureAssemblyPathInBaseDirectory(AppDomain.CurrentDomain.BaseDirectory);
             if (!File.Exists(featurePath))
             {
                 error = $"Features DLL が見つかりません: {featurePath}";

@@ -14,6 +14,7 @@
         /// </summary>
         protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
         {
+            // 値が変わったときだけ通知を飛ばし、余計な再描画を避ける。
             if (Equals(field, value)) return false;
             field = value;
             OnPropertyChanged(propertyName);

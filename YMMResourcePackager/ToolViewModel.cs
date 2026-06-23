@@ -2,7 +2,6 @@
 {
     public class ToolViewModel : BaseViewModel
     {
-        private const string OptionsFileName = "packaging_options.json";
         private const string YmmpxLibPluginAssetName = "YmmpxLibPlugin.ymme";
         private const string YmmpxLibPluginLatestDownloadUrl = "https://github.com/hazimeyou/YmmpxLib/releases/latest/download/YmmpxLibPlugin.ymme";
         private const string YmmpxLibPluginOverrideEnvironmentVariable = "YMMRESOURCEPACKAGER_YMMPXLIBPLUGIN_PATH";
@@ -501,13 +500,8 @@
         private static bool LooksLikeYmmpPath(string path) =>
             path.EndsWith(".ymmp", StringComparison.OrdinalIgnoreCase) ||
             path.EndsWith(".ymmpx", StringComparison.OrdinalIgnoreCase);
-        private static string GetGlobalExcludePath() => Path.Combine(PluginDirectory, "YMMResourcePackager", "exclude.json");
-        private static string GetLocalExcludePath(string projectPath)
-        {
-            var directory = Path.GetDirectoryName(projectPath) ?? string.Empty;
-            var baseName = Path.GetFileNameWithoutExtension(projectPath);
-            return Path.Combine(directory, $"{baseName}.exclude.json");
-        }
+        private static string GetGlobalExcludePath() => YMMResourcePackager.Shared.PackagerPaths.GetGlobalExcludePath(PluginDirectory);
+        private static string GetLocalExcludePath(string projectPath) => YMMResourcePackager.Shared.PackagerPaths.GetLocalExcludePath(projectPath);
 
         private string GetLocalExcludeStoragePath(string selectedProjectPath)
         {
@@ -515,7 +509,7 @@
                 ? _selectedProjectStoragePath
                 : selectedProjectPath;
         }
-        private static string GetPackagingOptionsPath() => Path.Combine(PluginDirectory, "YMMResourcePackager", OptionsFileName);
+        private static string GetPackagingOptionsPath() => YMMResourcePackager.Shared.PackagerPaths.GetPackagingOptionsPath(PluginDirectory);
 
         private void LoadPackagingOptions()
         {
@@ -653,7 +647,7 @@
         {
             try
             {
-                string appExe = Path.Combine(PluginDirectory, "YMMResourcePackager", "YMMResourceUnpackerApp.exe");
+                string appExe = YMMResourcePackager.Shared.PackagerPaths.GetUnpackerAppPath(PluginDirectory);
                 if (!File.Exists(appExe))
                 {
                     MessageBox.Show($"アプリが見つかりません:\n{appExe}", "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -747,14 +741,14 @@
                 Progress = 0;
                 YMMResourcePackager.Shared.AppLogger.LogInfo("Pack started.");
 
-                string baseDir = Path.GetDirectoryName(SelectedProject)!;
-                string projectName = Path.GetFileNameWithoutExtension(SelectedProject);
-                outputPath = Path.Combine(baseDir, $"{projectName}.ymmpx");
+                outputPath = YMMResourcePackager.Shared.PackagerPaths.GetProjectOutputPath(SelectedProject);
+                // グローバル設定とプロジェクト固有設定をまとめて、最終的な除外一覧を作る。
                 var globalRules = LoadExcludeItems(GetGlobalExcludePath());
                 var localRules = LoadExcludeItems(GetLocalExcludePath(GetLocalExcludeStoragePath(SelectedProject!)));
                 var excludedFiles = YMMResourcePackager.Shared.PackagingRules.ResolveExcludedFiles(
                     SelectedProject,
                     globalRules.Concat(localRules)).ToArray();
+                // 事前チェックで不足素材を数え、続行可否をユーザーに確認する。
                 var validation = ValidateProjectBeforePack(SelectedProject, excludedFiles);
                 DetectedMaterialCount = validation.DetectedMaterialCount;
                 ExcludedMaterialCount = validation.ExcludedMaterialCount;
@@ -774,6 +768,7 @@
                     }
                 }
 
+                // 本番出力は一度テンポラリへ書き、成功後に正式ファイルへ置き換える。
                 temporaryOutputPath = CreateTemporaryPackagePath(outputPath);
                 if (File.Exists(outputPath))
                 {
@@ -810,6 +805,7 @@
 
                 MoveGeneratedPackage(temporaryOutputPath, outputPath);
 
+                // ここまで来たらテンポラリは不要なので、後片付け対象から外す。
                 generatedPackageNeedsCleanup = false;
                 temporaryOutputPath = null;
                 Progress = 100;
@@ -825,6 +821,7 @@
             }
             catch (Exception ex)
             {
+                // 途中失敗した場合だけ、残ったテンポラリファイルを静かに削除する。
                 if (generatedPackageNeedsCleanup && !string.IsNullOrWhiteSpace(temporaryOutputPath))
                 {
                     DeleteTempFileQuietly(temporaryOutputPath);
@@ -962,10 +959,7 @@
 
         private static string CreateTemporaryYmmpxLibPackagePath()
         {
-            Directory.CreateDirectory(YMMResourcePackager.Shared.AppPaths.TempDirectory);
-            return Path.Combine(
-                YMMResourcePackager.Shared.AppPaths.TempDirectory,
-                YmmpxLibPluginAssetName);
+            return YMMResourcePackager.Shared.PackagerPaths.GetTemporaryYmmpxLibPackagePath();
         }
 
         private static void SetOwnerIfVisible(Window window)
@@ -1063,7 +1057,7 @@
             bool includeProjectUiSettings,
             Action<string, double, long, long> progress)
         {
-            var featurePath = Path.Combine(AppDirectories.PluginDirectory, "YMMResourcePackager", "YMMResourcePackager.Features.dll");
+            var featurePath = YMMResourcePackager.Shared.PackagerPaths.GetFeatureAssemblyPath(AppDirectories.PluginDirectory);
             if (!File.Exists(featurePath))
                 throw new FileNotFoundException("Features DLL が見つかりません。", featurePath);
 
@@ -1103,7 +1097,7 @@
 
         private static string InvokeFeatureUnpack(string ymmpxPath, out int replacedPathCount)
         {
-            var featurePath = Path.Combine(AppDirectories.PluginDirectory, "YMMResourcePackager", "YMMResourcePackager.Features.dll");
+            var featurePath = YMMResourcePackager.Shared.PackagerPaths.GetFeatureAssemblyPath(AppDirectories.PluginDirectory);
             if (!File.Exists(featurePath))
                 throw new FileNotFoundException("Features DLL が見つかりません。", featurePath);
 

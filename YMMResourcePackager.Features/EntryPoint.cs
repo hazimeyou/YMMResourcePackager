@@ -9,6 +9,7 @@ public static class EntryPoint
         bool includeProjectUiSettings,
         Action<string, double, long, long>? progress)
     {
+        // 実体型を動的に解決して、必要なオブジェクトだけ組み立てる。
         var (serviceType, optionsType, progressType) = ResolveYmmpxTypes();
         var excluded = excludedFiles.Where(x => !string.IsNullOrWhiteSpace(x)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -97,7 +98,7 @@ public static class EntryPoint
     private static string ResolveInstalledYmmpxLibPath()
     {
         var pluginRoot = ResolvePluginRoot();
-        return Path.Combine(pluginRoot, "user", "plugin", "YmmpxLibPlugin", "YmmpxLib.dll");
+        return YMMResourcePackager.Shared.PackagerPaths.GetInstalledYmmpxLibPath(Path.Combine(pluginRoot, "user", "plugin"));
     }
 
     private static string ResolvePluginRoot()

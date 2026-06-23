@@ -1,5 +1,6 @@
 namespace YMMResourcePackager.Shared;
 
+// ログ出力と一部の起動時挙動を制御するユーザー設定。
 public sealed class AppLoggingSettings
 {
     public bool EnableLogging { get; set; } = false;

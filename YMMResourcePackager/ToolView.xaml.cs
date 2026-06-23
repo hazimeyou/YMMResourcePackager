@@ -18,6 +18,7 @@
 
             _startupInitialized = true;
 
+            // 初回表示だけ、ViewModel の起動時チェックを走らせる。
             if (DataContext is ToolViewModel viewModel)
                 await viewModel.InitializeAsync();
         }

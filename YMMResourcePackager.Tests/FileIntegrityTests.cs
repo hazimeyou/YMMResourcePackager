@@ -30,6 +30,7 @@ public sealed class FileIntegrityTests : IDisposable
 
     public void Dispose()
     {
+        // テスト用ファイルは後始末して、次の実行に残さない。
         var directory = Path.GetDirectoryName(_path)!;
         if (Directory.Exists(directory))
             Directory.Delete(directory, recursive: true);

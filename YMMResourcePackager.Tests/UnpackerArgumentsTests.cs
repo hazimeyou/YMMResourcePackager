@@ -4,6 +4,7 @@ namespace YMMResourcePackager.Tests;
 
 public sealed class UnpackerArgumentsTests
 {
+    // 引数の分解と展開先解決の境界条件を確認する。
     [Fact]
     public void StripLoggingSwitchesReturnsRemainingArgsAndFlags()
     {

@@ -8,6 +8,7 @@ public sealed class PackagingRulesTests : IDisposable
 
     public PackagingRulesTests()
     {
+        // 各テストは一時ディレクトリ配下で独立して動かす。
         _root = Path.Combine(Path.GetTempPath(), "YMMResourcePackager.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_root);
     }
@@ -358,6 +359,7 @@ public sealed class PackagingRulesTests : IDisposable
 
     public void Dispose()
     {
+        // 使い終わった検証ファイルはまとめて削除する。
         if (Directory.Exists(_root))
             Directory.Delete(_root, recursive: true);
     }

@@ -21,6 +21,7 @@ public static class UnpackerArguments
         string ymmpxPath,
         string pluginDirectory)
     {
+        // 出力先モードに応じて、展開先の基準フォルダーを切り替える。
         if (string.Equals(mode, UnpackOutputModes.PluginFolder, StringComparison.Ordinal))
             return pluginDirectory;
 
@@ -34,8 +35,9 @@ public static class UnpackerArguments
         {
             var trimmed = customDirectory?.Trim();
             if (string.IsNullOrWhiteSpace(trimmed))
-                throw new InvalidOperationException("展開先フォルダーが未設定です。");
+                throw new InvalidOperationException("カスタム展開先フォルダーが未設定です。");
 
+            // 後段の Path.Combine で扱いやすいよう、ここで絶対パスへ正規化する。
             return Path.GetFullPath(trimmed);
         }
 

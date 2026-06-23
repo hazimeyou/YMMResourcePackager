@@ -24,6 +24,7 @@ namespace YMMResourcePackagerPlugin.ViewModel
             if (!CanExecute(parameter))
                 return;
 
+            // 実行中は再実行できないようにして、連打による重複実行を防ぐ。
             _isExecuting = true;
             RaiseCanExecuteChanged();
 

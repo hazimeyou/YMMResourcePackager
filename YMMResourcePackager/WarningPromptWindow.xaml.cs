@@ -2,6 +2,7 @@ using System.ComponentModel;
 
 namespace YMMResourcePackager
 {
+    // 再表示抑制つきの、シンプルな確認ダイアログ。
     public partial class WarningPromptWindow : Window, INotifyPropertyChanged
     {
         private string _windowTitle = string.Empty;
@@ -52,6 +53,7 @@ namespace YMMResourcePackager
 
         private void YesButton_Click(object sender, RoutedEventArgs e)
         {
+            // 確認済みとして閉じる。
             Result = true;
             DialogResult = true;
             Close();
@@ -59,6 +61,7 @@ namespace YMMResourcePackager
 
         private void NoButton_Click(object sender, RoutedEventArgs e)
         {
+            // キャンセルとして閉じる。
             Result = false;
             DialogResult = false;
             Close();

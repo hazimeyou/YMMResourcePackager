@@ -22,6 +22,7 @@ namespace YMMResourcePackagerPlugin
 {
     public class YMMResourcePackagerPluginToolPlugin : IToolPlugin
     {
+        // YMM のツール一覧に表示される名前。
         public string Name => "素材同梱プラグイン";
         public Type ViewModelType => typeof(ToolViewModel);
         public Type ViewType => typeof(ToolView);

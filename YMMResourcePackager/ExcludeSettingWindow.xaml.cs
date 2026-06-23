@@ -5,6 +5,7 @@ using YMMResourcePackager.Shared;
 
 namespace YMMResourcePackager
 {
+    // グローバル・ローカルの除外ルールをまとめて編集する画面。
     public partial class ExcludeSettingWindow : Window
     {
         private readonly string _projectDirectory;
@@ -30,6 +31,7 @@ namespace YMMResourcePackager
 
         private static IEnumerable<ExcludeRule> NormalizeRules(IEnumerable<ExcludeRule> items, bool forceAbsolute, string projectDirectory)
         {
+            // 表示前に重複を潰して、パス表記を統一しておく。
             return items
                 .Where(x => x is not null && !string.IsNullOrWhiteSpace(x.Path))
                 .Select(x => new ExcludeRule
@@ -45,6 +47,7 @@ namespace YMMResourcePackager
 
         private IEnumerable<ProjectMaterialItem> BuildProjectMaterials(IEnumerable<string> projectMaterialPaths)
         {
+            // プロジェクト内の素材一覧を、存在確認付きの表示モデルに変換する。
             return projectMaterialPaths
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Select(x => x.Trim())
@@ -104,6 +107,7 @@ namespace YMMResourcePackager
 
         private void AddSelectedProjectItems(bool toGlobal)
         {
+            // 選択中の素材を、グローバルまたはローカル除外へ一括追加する。
             var target = toGlobal ? GlobalExcludeItems : LocalExcludeItems;
             var selectedItems = ProjectMaterialListView.SelectedItems.Cast<ProjectMaterialItem>().ToArray();
             foreach (var item in selectedItems)
@@ -189,6 +193,7 @@ namespace YMMResourcePackager
 
         private void AddRule(ObservableCollection<ExcludeRule> items, string path, bool isFolder, bool forceAbsolute)
         {
+            // すでにある行は増やさず、重複入力だけ防ぐ。
             var normalized = NormalizeRulePath(path, isFolder, forceAbsolute, _projectDirectory);
             if (string.IsNullOrWhiteSpace(normalized))
                 return;
