@@ -4,7 +4,7 @@ YMM4 向けのリソースパッカー / アンパッカーです。`.ymmp` プ�
 
 ## 主な機能
 
-- `.ymmp` から `.ymmpx` を作成
+- `.ymmpx` YMMP同梱ファイルを作成
 - `.ymmpx` を展開して `.ymmp` を復元
 - グローバル除外と、プロジェクト単位のローカル除外を分離して管理
 - プロジェクト内で参照されているが見つからない素材も除外候補として扱える
@@ -45,18 +45,6 @@ YMM4 向けのリソースパッカー / アンパッカーです。`.ymmp` プ�
 - 実行時は `YmmpxLibPlugin` が必要です。
 - 旧 `YmmpxLib` フォルダーが残っている場合は、削除案内が表示されます。
 
-## 開発
-
-クリーンな環境でビルドする場合は、先に YMM4 の開発用 DLL を用意してください。
-
-- `YMM4_PATH` をローカルの YMM4 インストール先に設定する
-- もしくは `libs/` に `YukkuriMovieMaker.Plugin.dll` と `YukkuriMovieMaker.Controls.dll` を配置する
-
-```powershell
-dotnet restore .\YMMResourceUnpackerApp.sln
-dotnet build .\YMMResourceUnpackerApp.sln -c Release
-dotnet test .\YMMResourceUnpackerApp.sln -c Release
-```
 
 ## ライセンス
 
