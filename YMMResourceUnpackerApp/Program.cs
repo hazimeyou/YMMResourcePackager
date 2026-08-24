@@ -58,13 +58,9 @@ namespace YMMResourceUnpackerApp
                 return 1;
             }
 
-            var baseName = Path.GetFileNameWithoutExtension(ymmpxPath);
-            if (string.IsNullOrWhiteSpace(baseName))
-                baseName = "unpacked_ymmpx";
-
-            var appDir = AppDomain.CurrentDomain.BaseDirectory;
+            var pluginRoot = AppPaths.BaseDirectory;
             var suffixToRemove = @"user\plugin\YMMResourcePackager\";
-            var ymmRootDir = appDir;
+            var ymmRootDir = pluginRoot;
             if (ymmRootDir.EndsWith(suffixToRemove, StringComparison.OrdinalIgnoreCase))
             {
                 ymmRootDir = ymmRootDir.Substring(0, ymmRootDir.Length - suffixToRemove.Length);
@@ -74,10 +70,7 @@ namespace YMMResourceUnpackerApp
 
             try
             {
-                // 展開先を決めてから、必要ならフォルダーを作る。
-                var unpackBaseDir = ResolveUnpackBaseDirectory(ymmpxPath, appDir);
-                Directory.CreateDirectory(unpackBaseDir);
-                var desiredDir = Path.Combine(unpackBaseDir, baseName);
+                var desiredDir = PackagerPaths.GetPackageExtractionDirectory(pluginRoot, ymmpxPath);
                 var finalDir = service.GetAvailableDirectoryPath(desiredDir);
                 Console.WriteLine("展開中...");
                 AppLogger.LogInfo("Unpack started.");
@@ -155,27 +148,6 @@ namespace YMMResourceUnpackerApp
             return false;
         }
 
-        private static string ResolveUnpackBaseDirectory(string ymmpxPath, string pluginDirectory)
-        {
-            var settings = AppSettingsStore.Load();
-            try
-            {
-                return UnpackerArguments.ResolveUnpackBaseDirectory(
-                    settings.UnpackOutputMode,
-                    settings.CustomUnpackDirectory,
-                    ymmpxPath,
-                    pluginDirectory);
-            }
-            catch (InvalidOperationException ex) when (
-                string.Equals(settings.UnpackOutputMode, UnpackOutputModes.CustomFolder, StringComparison.Ordinal) &&
-                string.IsNullOrWhiteSpace(settings.CustomUnpackDirectory))
-            {
-                Console.WriteLine("展開先フォルダーが未設定です。プラグインフォルダーに展開します。");
-                AppLogger.LogWarning($"Custom unpack directory was missing: {ex.Message}");
-                return pluginDirectory;
-            }
-        }
-
         private static string[] HandleLoggingSwitches(string[] args)
         {
             var parsed = UnpackerArguments.StripLoggingSwitches(args);
@@ -207,7 +179,8 @@ namespace YMMResourceUnpackerApp
             error = string.Empty;
 
             // features DLL を読み込み、必要な静的メソッドだけ反射で抜き出す。
-            var featurePath = YMMResourcePackager.Shared.PackagerPaths.GetFeatureAssemblyPathInBaseDirectory(AppDomain.CurrentDomain.BaseDirectory);
+            var pluginRoot = AppPaths.BaseDirectory;
+            var featurePath = YMMResourcePackager.Shared.PackagerPaths.GetFeatureAssemblyPathInBaseDirectory(pluginRoot);
             if (!File.Exists(featurePath))
             {
                 error = $"Features DLL が見つかりません: {featurePath}";
@@ -216,6 +189,8 @@ namespace YMMResourceUnpackerApp
 
             try
             {
+                YmmpxLibV2RuntimeResolver.EnsureRegistered(pluginRoot);
+                AppLogger.LogInfo("Launcher resolved Features and registered YmmpxLibV2 runtime resolver.");
                 var assembly = Assembly.LoadFrom(featurePath);
                 var entryType = assembly.GetType("YMMResourcePackager.Features.EntryPoint")
                     ?? throw new InvalidOperationException("Features EntryPoint 型が見つかりません。");

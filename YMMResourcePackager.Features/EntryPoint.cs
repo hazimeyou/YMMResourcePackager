@@ -70,7 +70,7 @@ public static class EntryPoint
             var resolution = YmmpxProjectReferenceResolver.Resolve(session.Package.Project, references, extractDirectory, cancellationToken);
             await YmmpxPackageExtractor.ExtractAsync(session, extractDirectory,
                 new YmmpxExtractionOptions { ProjectOverride = resolution.Project }, cancellationToken).ConfigureAwait(false);
-            var projectPath = Path.Combine(extractDirectory, resolution.Project.PackagePath.Replace('/', Path.DirectorySeparatorChar));
+            var projectPath = Path.Combine(extractDirectory, resolution.Project.OriginalFileName);
             AppLogger.LogInfo($"YMMPX package extraction succeeded. Route: {detection.ReaderRoute}; replacements: {resolution.ReplacedReferenceCount}.");
             return new YmmpxUnpackResult(projectPath, resolution.ReplacedReferenceCount, detection.Status);
         }

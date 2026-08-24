@@ -21,6 +21,8 @@ YMM4 向けのリソースパッカー / アンパッカーです。`.ymmp` プ�
 
 Format 2.0 では、既存の除外設定、プロジェクトUI設定の含有指定、進捗表示を維持します。ライブラリより新しい形式や未対応minor形式は展開せず、更新が必要であることを案内します。
 
+展開先はPlugin root配下の `ExtractedProjects/<package-name>/` です。展開後の `.ymmp` はpackage名から推測せず、packageに保存された元Project名を使用します。
+
 ## 使い方
 
 ### パッケージ化

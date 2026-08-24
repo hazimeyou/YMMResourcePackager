@@ -25,6 +25,23 @@ public sealed class PackagingRulesTests : IDisposable
     }
 
     [Fact]
+    public void CreatesPluginRelativeStorageRootsAndSafeJapanesePackageDirectory()
+    {
+        var pluginRoot = Path.Combine(_root, "YMMResourcePackager");
+        var package = Path.Combine(_root, "日本語 sample.ymmpx");
+
+        Assert.Equal(Path.Combine(pluginRoot, "ExtractedProjects"), PackagerPaths.GetExtractedProjectsRoot(pluginRoot));
+        Assert.Equal(Path.Combine(pluginRoot, "ResourceCache"), PackagerPaths.GetResourceCacheRoot(pluginRoot));
+        Assert.Equal(Path.Combine(pluginRoot, "ExtractedProjects", "日本語 sample"), PackagerPaths.GetPackageExtractionDirectory(pluginRoot, package));
+    }
+
+    [Fact]
+    public void RejectsUnsafePackageDirectoryName()
+    {
+        Assert.Throws<ArgumentException>(() => PackagerPaths.GetPackageExtractionDirectory(_root, ".ymmpx"));
+    }
+
+    [Fact]
     public void ReturnsStableAvailableFilePathUsingHighestExistingSuffix()
     {
         var output = Path.Combine(_root, "MyProject.ymmpx");

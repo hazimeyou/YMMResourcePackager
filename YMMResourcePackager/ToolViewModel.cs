@@ -1066,6 +1066,7 @@
             if (!File.Exists(featurePath))
                 throw new FileNotFoundException("Features DLL が見つかりません。", featurePath);
 
+            YMMResourcePackager.Shared.YmmpxLibV2RuntimeResolver.EnsureRegistered(AppDirectories.PluginDirectory);
             var assembly = System.Reflection.Assembly.LoadFrom(featurePath);
             var type = assembly.GetType("YMMResourcePackager.Features.EntryPoint")
                 ?? throw new InvalidOperationException("Features EntryPoint が見つかりません。");
@@ -1106,6 +1107,7 @@
             if (!File.Exists(featurePath))
                 throw new FileNotFoundException("Features DLL が見つかりません。", featurePath);
 
+            YMMResourcePackager.Shared.YmmpxLibV2RuntimeResolver.EnsureRegistered(AppDirectories.PluginDirectory);
             var assembly = System.Reflection.Assembly.LoadFrom(featurePath);
             var type = assembly.GetType("YMMResourcePackager.Features.EntryPoint")
                 ?? throw new InvalidOperationException("Features EntryPoint が見つかりません。");
@@ -1114,7 +1116,7 @@
             var method = type.GetMethod("RunUnpack", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
                 ?? throw new InvalidOperationException("RunUnpack メソッドが見つかりません。");
 
-            var desiredDirectory = GetPreferredUnpackDirectory(ymmpxPath);
+            var desiredDirectory = YMMResourcePackager.Shared.PackagerPaths.GetPackageExtractionDirectory(AppDirectories.PluginDirectory, ymmpxPath);
             var unpackDirectory = getAvailableMethod.Invoke(null, [desiredDirectory])?.ToString() ?? desiredDirectory;
             object[] args = [ymmpxPath, unpackDirectory, 0];
             object? invocationResult;
@@ -1152,29 +1154,6 @@
             return YMMResourcePackager.Shared.PackagingRules.GetStableAvailableFilePath(path);
         }
 
-        private static string GetPreferredUnpackDirectory(string ymmpxPath)
-        {
-            var settings = YMMResourcePackager.Shared.AppSettingsStore.Load();
-
-            try
-            {
-                var baseDirectory = YMMResourcePackager.Shared.UnpackerArguments.ResolveUnpackBaseDirectory(
-                    settings.UnpackOutputMode,
-                    settings.CustomUnpackDirectory,
-                    ymmpxPath,
-                    AppDirectories.PluginDirectory);
-
-                var fileName = Path.GetFileNameWithoutExtension(ymmpxPath);
-                return Path.Combine(baseDirectory, fileName);
-            }
-            catch (InvalidOperationException) when (
-                string.Equals(settings.UnpackOutputMode, YMMResourcePackager.Shared.UnpackOutputModes.CustomFolder, StringComparison.Ordinal) &&
-                string.IsNullOrWhiteSpace(settings.CustomUnpackDirectory))
-            {
-                var fileName = Path.GetFileNameWithoutExtension(ymmpxPath);
-                return Path.Combine(AppDirectories.PluginDirectory, fileName);
-            }
-        }
 
         private static string CreateTemporaryPackagePath(string finalPath)
             => YMMResourcePackager.Shared.PackagingRules.CreateTemporaryPackagePath(finalPath);
