@@ -90,10 +90,10 @@ namespace YMMResourceUnpackerApp
             }
             catch (Exception ex)
             {
-                if (IsMissingYmmpxLibException(ex))
+                if (IsMissingYmmpxLibV2Exception(ex))
                 {
-                    AnnounceMissingYmmpxLib();
-                    AppLogger.LogWarning("YmmpxLib Shared Library is missing.");
+                    AnnounceMissingYmmpxLibV2();
+                    AppLogger.LogWarning("YmmpxLibV2 is missing.");
                     return 1;
                 }
 
@@ -304,14 +304,14 @@ namespace YMMResourceUnpackerApp
             }
         }
 
-        private static bool IsMissingYmmpxLibException(Exception ex)
+        private static bool IsMissingYmmpxLibV2Exception(Exception ex)
         {
             for (var current = ex; current is not null; current = current.InnerException)
             {
-                if (current is FileNotFoundException && current.Message.Contains("YmmpxLib.dll", StringComparison.OrdinalIgnoreCase))
+                if (current is FileNotFoundException && current.Message.Contains("YmmpxLibV2", StringComparison.OrdinalIgnoreCase))
                     return true;
 
-                if (current.Message.Contains("YmmpxLib", StringComparison.OrdinalIgnoreCase) &&
+                if (current.Message.Contains("YmmpxLibV2", StringComparison.OrdinalIgnoreCase) &&
                     (current is TargetInvocationException || current is InvalidOperationException))
                     return true;
             }
@@ -319,10 +319,10 @@ namespace YMMResourceUnpackerApp
             return false;
         }
 
-        private static void AnnounceMissingYmmpxLib()
+        private static void AnnounceMissingYmmpxLibV2()
         {
-            Console.WriteLine("YmmpxLib Shared Library が見つかりません。");
-            Console.WriteLine("YmmpxLib Shared Library を追加してから再実行してください。");
+            Console.WriteLine("YmmpxLibV2Plugin が見つかりません。");
+            Console.WriteLine("YmmpxLibV2Plugin を追加してから再実行してください。");
         }
 
         [SupportedOSPlatform("windows")]

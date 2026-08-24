@@ -8,9 +8,9 @@ public static class PackagerPaths
     private const string PackagingOptionsFileName = "packaging_options.json";
     private const string FeaturesAssemblyName = "YMMResourcePackager.Features.dll";
     private const string UnpackerAppExeName = "YMMResourceUnpackerApp.exe";
-    private const string YmmpxLibDllName = "YmmpxLib.dll";
-    private const string YmmpxLibPluginFolderName = "YmmpxLibPlugin";
-    private const string YmmpxLibPluginAssetName = "YmmpxLibPlugin.ymme";
+    private const string YmmpxLibDllName = "YmmpxLibV2.dll";
+    private const string YmmpxLibPluginFolderName = "YmmpxLibV2Plugin";
+    private const string YmmpxLibPluginAssetName = "YmmpxLibV2Plugin.ymme";
 
     public static string PackagerDataDirectory(string pluginDirectory) =>
         Path.Combine(pluginDirectory, PackagerFolderName);
