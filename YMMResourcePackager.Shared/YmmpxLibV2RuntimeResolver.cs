@@ -15,6 +15,16 @@ public static class YmmpxLibV2RuntimeResolver
         {
             if (string.Equals(_registeredPluginRoot, root, StringComparison.OrdinalIgnoreCase)) return;
             AppDomain.CurrentDomain.AssemblyResolve += (_, args) => Resolve(args, root);
+            var candidate = GetCandidatePath(root);
+            if (!File.Exists(candidate))
+                throw new FileNotFoundException("YmmpxLibV2.dll がYmmpxLibV2Pluginに見つかりません。", candidate);
+
+            if (!AppDomain.CurrentDomain.GetAssemblies().Any(assembly =>
+                    string.Equals(assembly.GetName().Name, "YmmpxLibV2", StringComparison.OrdinalIgnoreCase)))
+            {
+                Assembly.LoadFrom(candidate);
+                AppLogger.LogInfo("YmmpxLibV2 runtime was preloaded for dynamic Features loading.");
+            }
             _registeredPluginRoot = root;
         }
     }
@@ -23,7 +33,17 @@ public static class YmmpxLibV2RuntimeResolver
     {
         var requested = new AssemblyName(args.Name).Name;
         if (!string.Equals(requested, "YmmpxLibV2", StringComparison.OrdinalIgnoreCase)) return null;
-        var candidate = Path.Combine(pluginRoot, "YmmpxLibV2Plugin", "YmmpxLibV2.dll");
-        return File.Exists(candidate) ? Assembly.LoadFrom(candidate) : null;
+        var candidate = GetCandidatePath(pluginRoot);
+        if (!File.Exists(candidate))
+        {
+            AppLogger.LogWarning("YmmpxLibV2 runtime resolution failed because the sibling DLL is missing.");
+            return null;
+        }
+
+        AppLogger.LogInfo("YmmpxLibV2 runtime was resolved for dynamic Features loading.");
+        return Assembly.LoadFrom(candidate);
     }
+
+    private static string GetCandidatePath(string pluginRoot) =>
+        Path.Combine(pluginRoot, "..", "YmmpxLibV2Plugin", "YmmpxLibV2.dll");
 }

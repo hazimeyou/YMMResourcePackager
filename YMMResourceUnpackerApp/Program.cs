@@ -83,6 +83,7 @@ namespace YMMResourceUnpackerApp
             }
             catch (Exception ex)
             {
+                LogExceptionChain(ex, "Launcher unpack failed");
                 if (IsMissingYmmpxLibV2Exception(ex))
                 {
                     AnnounceMissingYmmpxLibV2();
@@ -232,10 +233,35 @@ namespace YMMResourceUnpackerApp
             public YmmpxExtractResult ExtractAndRestoreProject(string ymmpxPath, string finalDir)
             {
                 object[] args = [ymmpxPath, finalDir, 0];
-                var projectPath = _unpackMethod.Invoke(null, args)?.ToString()
+                object? result;
+                try
+                {
+                    result = _unpackMethod.Invoke(null, args);
+                }
+                catch (TargetInvocationException ex) when (ex.InnerException is not null)
+                {
+                    LogExceptionChain(ex, "Features RunUnpack invocation failed");
+                    System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+                    throw;
+                }
+
+                var projectPath = result?.ToString()
                     ?? throw new InvalidOperationException("展開後のプロジェクトパスが取得できません。");
                 var count = args[2] is int i ? i : 0;
                 return new YmmpxExtractResult(projectPath, count);
+            }
+        }
+
+        private static void LogExceptionChain(Exception exception, string context)
+        {
+            var depth = 0;
+            for (var current = exception; current is not null; current = current.InnerException)
+            {
+                var fileName = current is FileNotFoundException fileNotFound && !string.IsNullOrWhiteSpace(fileNotFound.FileName)
+                    ? $"; file={fileNotFound.FileName}"
+                    : string.Empty;
+                AppLogger.LogException(current, $"{context}; exception depth={depth}{fileName}");
+                depth++;
             }
         }
 

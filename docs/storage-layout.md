@@ -1,6 +1,6 @@
 # 展開ストレージ構成
 
-YMMResourcePackagerは、実行時に解決したPlugin rootを基準に保存場所を決めます。YMM4の固定絶対パスやカレントディレクトリには依存しません。
+YMMResourcePackagerは、実行時に解決した個別Plugin root（`.../user/plugin/YMMResourcePackager`）を基準に保存場所を決めます。YMM4の `AppDirectories.PluginDirectory` はPlugin親（`.../user/plugin`）であり、Storage rootには使用しません。固定絶対パスやカレントディレクトリには依存しません。
 
 ```text
 YMMResourcePackager/

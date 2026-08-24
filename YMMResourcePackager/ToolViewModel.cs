@@ -1116,7 +1116,8 @@
             var method = type.GetMethod("RunUnpack", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
                 ?? throw new InvalidOperationException("RunUnpack メソッドが見つかりません。");
 
-            var desiredDirectory = YMMResourcePackager.Shared.PackagerPaths.GetPackageExtractionDirectory(AppDirectories.PluginDirectory, ymmpxPath);
+            var desiredDirectory = YMMResourcePackager.Shared.PackagerPaths.GetPackageExtractionDirectory(
+                YMMResourcePackager.Shared.AppPaths.BaseDirectory, ymmpxPath);
             var unpackDirectory = getAvailableMethod.Invoke(null, [desiredDirectory])?.ToString() ?? desiredDirectory;
             object[] args = [ymmpxPath, unpackDirectory, 0];
             object? invocationResult;
