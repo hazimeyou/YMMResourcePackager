@@ -2,9 +2,9 @@
 {
     public class ToolViewModel : BaseViewModel
     {
-        private const string YmmpxLibPluginAssetName = "YmmpxLibPlugin.ymme";
-        private const string YmmpxLibPluginLatestDownloadUrl = "https://github.com/hazimeyou/YmmpxLib/releases/latest/download/YmmpxLibPlugin.ymme";
-        private const string YmmpxLibPluginOverrideEnvironmentVariable = "YMMRESOURCEPACKAGER_YMMPXLIBPLUGIN_PATH";
+        private const string YmmpxLibPluginAssetName = "YmmpxLibV2Plugin.ymme";
+        private const string YmmpxLibPluginLatestDownloadUrl = "https://github.com/hazimeyou/YmmpxLib/releases/latest/download/YmmpxLibV2Plugin.ymme";
+        private const string YmmpxLibPluginOverrideEnvironmentVariable = "YMMRESOURCEPACKAGER_YMMPXLIBV2PLUGIN_PATH";
         private static readonly JsonSerializerOptions WriteIndentedJsonOptions = new() { WriteIndented = true };
         private string? _selectedProject;
         private readonly AsyncRelayCommand _packageCommand;
@@ -849,8 +849,8 @@
         {
             try
             {
-                var exists = TryGetLoadedYmmpxLibAssembly() is not null || File.Exists(GetInstalledYmmpxLibPath());
-                YMMResourcePackager.Shared.AppLogger.LogInfo($"YmmpxLib install check: {(exists ? "installed" : "not installed")}.");
+                var exists = File.Exists(GetInstalledYmmpxLibPath());
+                YMMResourcePackager.Shared.AppLogger.LogInfo($"YmmpxLibV2 install check: {(exists ? "installed" : "not installed")}.");
                 return exists;
             }
             catch
@@ -860,13 +860,7 @@
         }
 
         private static string GetInstalledYmmpxLibPath() =>
-            Path.Combine(AppDirectories.PluginDirectory, "YmmpxLibPlugin", "YmmpxLib.dll");
-
-        private static System.Reflection.Assembly? TryGetLoadedYmmpxLibAssembly()
-        {
-            return AppDomain.CurrentDomain.GetAssemblies()
-                .FirstOrDefault(a => string.Equals(a.GetName().Name, "YmmpxLib", StringComparison.OrdinalIgnoreCase));
-        }
+            Path.Combine(AppDirectories.PluginDirectory, "YmmpxLibV2Plugin", "YmmpxLibV2.dll");
 
         private async Task<bool> TryInstallYmmpxLibPluginAsync()
         {
@@ -1123,7 +1117,18 @@
             var desiredDirectory = GetPreferredUnpackDirectory(ymmpxPath);
             var unpackDirectory = getAvailableMethod.Invoke(null, [desiredDirectory])?.ToString() ?? desiredDirectory;
             object[] args = [ymmpxPath, unpackDirectory, 0];
-            var projectPath = method.Invoke(null, args)?.ToString()
+            object? invocationResult;
+            try
+            {
+                invocationResult = method.Invoke(null, args);
+            }
+            catch (System.Reflection.TargetInvocationException ex) when (ex.InnerException is not null)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+                throw;
+            }
+
+            var projectPath = invocationResult?.ToString()
                 ?? throw new InvalidOperationException("展開後のプロジェクトパスが取得できません。");
             replacedPathCount = args[2] is int i ? i : 0;
             return projectPath;

@@ -1,126 +1,117 @@
-﻿namespace YMMResourcePackager.Features;
+using YmmpxLibV2;
+using YMMResourcePackager.Shared;
 
+namespace YMMResourcePackager.Features;
+
+/// <summary>Type-safe YMMPX v2 boundary used by the plugin UI and unpacker.</summary>
 public static class EntryPoint
 {
-    public static async Task RunPackAsync(
-        string projectPath,
-        string outputPath,
-        string[] excludedFiles,
-        bool includeProjectUiSettings,
-        Action<string, double, long, long>? progress)
+    public static async Task RunPackAsync(string projectPath, string outputPath, string[] excludedFiles,
+        bool includeProjectUiSettings, Action<string, double, long, long>? progress)
     {
-        // 実体型を動的に解決して、必要なオブジェクトだけ組み立てる。
-        var (serviceType, optionsType, progressType) = ResolveYmmpxTypes();
-        var excluded = excludedFiles.Where(x => !string.IsNullOrWhiteSpace(x)).ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var options = Activator.CreateInstance(optionsType) ?? throw new InvalidOperationException("Ymmpx options instance could not be created.");
-        optionsType.GetProperty("IncludeProjectUiSettings")?.SetValue(options, includeProjectUiSettings);
-
-        object? reporter = null;
-        if (progress is not null)
+        try
         {
-            var callback = new Action<object?>(p =>
+            AppLogger.LogInfo("YMMPX v2 package creation started.");
+            var options = new YmmpxV2WriteOptions
             {
-                if (p is null) return;
-                var t = p.GetType();
-                var message = t.GetProperty("Message")?.GetValue(p)?.ToString() ?? string.Empty;
-                var percentage = ConvertToDouble(t.GetProperty("Percentage")?.GetValue(p));
-                var processedBytes = ConvertToInt64(t.GetProperty("ProcessedBytes")?.GetValue(p));
-                var totalBytes = ConvertToInt64(t.GetProperty("TotalBytes")?.GetValue(p));
-                progress(message, percentage, processedBytes, totalBytes);
-            });
-
-            var progressImplType = typeof(ObjectProgress<>).MakeGenericType(progressType);
-            reporter = Activator.CreateInstance(progressImplType, callback);
+                ExcludedResources = excludedFiles.Where(path => !string.IsNullOrWhiteSpace(path)).ToArray(),
+                IncludeProjectUiSettings = includeProjectUiSettings,
+                Progress = progress is null ? null : new Progress<YmmpxV2WriteProgress>(value =>
+                    progress(GetProgressMessage(value.Stage), value.Fraction * 100, value.Current, value.Total))
+            };
+            await YmmpxV2Writer.WriteAsync(new YmmpxV2WriteRequest(projectPath, outputPath) { Options = options }).ConfigureAwait(false);
+            AppLogger.LogInfo("YMMPX v2 package creation succeeded.");
         }
-
-        var createMethod = serviceType.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
-            .FirstOrDefault(m => m.Name == "CreatePackageAsync" && m.GetParameters().Length >= 5)
-            ?? throw new MissingMethodException("CreatePackageAsync method not found.");
-
-        var parameters = createMethod.GetParameters();
-        object?[] args = parameters.Length >= 6
-            ? [projectPath, outputPath, excluded, options, reporter, CancellationToken.None]
-            : [projectPath, outputPath, excluded, options, reporter];
-
-        var taskObj = createMethod.Invoke(null, args) ?? throw new InvalidOperationException("CreatePackageAsync returned null task.");
-        if (taskObj is not Task task)
-            throw new InvalidOperationException("CreatePackageAsync did not return Task.");
-
-        await task;
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, "YMMPX v2 package creation failed.");
+            throw new YmmpxPackageOperationException(YmmpxPackageOperationError.ProcessingFailed,
+                "パッケージの作成に失敗しました。ログを確認してください。", ex);
+        }
     }
 
     public static string GetAvailableUnpackDirectory(string desiredDirectory)
     {
-        var (serviceType, _, _) = ResolveYmmpxTypes();
-        var method = serviceType.GetMethod("GetAvailableDirectoryPath", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
-            ?? throw new MissingMethodException("GetAvailableDirectoryPath not found.");
-        return method.Invoke(null, [desiredDirectory])?.ToString() ?? desiredDirectory;
+        var candidate = desiredDirectory;
+        var suffix = 2;
+        while (Directory.Exists(candidate) || File.Exists(candidate))
+            candidate = $"{desiredDirectory}_{suffix++}";
+        return candidate;
     }
 
     public static string RunUnpack(string ymmpxPath, string extractDirectory, out int replacedPathCount)
     {
-        var (serviceType, _, _) = ResolveYmmpxTypes();
-        var method = serviceType.GetMethod("ExtractAndRestoreProject", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
-            ?? throw new MissingMethodException("ExtractAndRestoreProject not found.");
-
-        var result = method.Invoke(null, [ymmpxPath, extractDirectory]) ?? throw new InvalidOperationException("Unpack result is null.");
-        var t = result.GetType();
-        replacedPathCount = ConvertToInt32(t.GetProperty("ReplacedPathCount")?.GetValue(result));
-        return t.GetProperty("ProjectFilePath")?.GetValue(result)?.ToString()
-            ?? throw new InvalidOperationException("ProjectFilePath is missing.");
+        var result = RunUnpackAsync(ymmpxPath, extractDirectory).GetAwaiter().GetResult();
+        replacedPathCount = result.ReplacedPathCount;
+        return result.ProjectFilePath;
     }
 
-    private static (Type serviceType, Type optionsType, Type progressType) ResolveYmmpxTypes()
+    public static async Task<YmmpxUnpackResult> RunUnpackAsync(string ymmpxPath, string extractDirectory,
+        CancellationToken cancellationToken = default)
     {
-        var assembly = ResolveLoadedYmmpxAssembly();
-        if (assembly is null)
+        try
         {
-            var dllPath = ResolveInstalledYmmpxLibPath();
-            if (string.IsNullOrWhiteSpace(dllPath) || !File.Exists(dllPath))
-                throw new FileNotFoundException("YmmpxLib.dll が見つかりません。YMM 本体で読み込まれた YmmpxLib Shared Library を追加してください。");
+            AppLogger.LogInfo("YMMPX package extraction started.");
+            await using var stream = new FileStream(ymmpxPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 128, true);
+            var detection = await YmmpxFormatDetector.DetectAsync(stream, cancellationToken).ConfigureAwait(false);
+            AppLogger.LogInfo($"YMMPX detected format: {detection.Status}; route: {detection.ReaderRoute}.");
+            if (!detection.IsSupported)
+                throw CreateUnsupportedFormatException(detection);
 
-            assembly = System.Reflection.Assembly.LoadFrom(dllPath);
+            stream.Seek(0, SeekOrigin.Begin);
+            await using var session = detection.ReaderRoute switch
+            {
+                YmmpxReaderRoute.LegacyV1 => await LegacyV1Reader.OpenAsync(stream, cancellationToken).ConfigureAwait(false),
+                YmmpxReaderRoute.V2 => await YmmpxV2Reader.OpenAsync(stream, cancellationToken).ConfigureAwait(false),
+                _ => throw CreateUnsupportedFormatException(detection)
+            };
+
+            var references = ProjectResourceReferenceMapper.FromPackage(session.Package);
+            var resolution = YmmpxProjectReferenceResolver.Resolve(session.Package.Project, references, extractDirectory, cancellationToken);
+            await YmmpxPackageExtractor.ExtractAsync(session, extractDirectory,
+                new YmmpxExtractionOptions { ProjectOverride = resolution.Project }, cancellationToken).ConfigureAwait(false);
+            var projectPath = Path.Combine(extractDirectory, resolution.Project.PackagePath.Replace('/', Path.DirectorySeparatorChar));
+            AppLogger.LogInfo($"YMMPX package extraction succeeded. Route: {detection.ReaderRoute}; replacements: {resolution.ReplacedReferenceCount}.");
+            return new YmmpxUnpackResult(projectPath, resolution.ReplacedReferenceCount, detection.Status);
         }
-
-        var serviceType = assembly.GetType("YmmpxLib.YmmpxPackageService") ?? throw new TypeLoadException("YmmpxPackageService type not found.");
-        var optionsType = assembly.GetType("YmmpxLib.YmmpxPackagingOptions") ?? throw new TypeLoadException("YmmpxPackagingOptions type not found.");
-        var progressType = assembly.GetType("YmmpxLib.YmmpxPackagingProgress") ?? throw new TypeLoadException("YmmpxPackagingProgress type not found.");
-        return (serviceType, optionsType, progressType);
+        catch (YmmpxPackageOperationException) { throw; }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, "YMMPX package extraction failed.");
+            throw new YmmpxPackageOperationException(YmmpxPackageOperationError.InvalidPackage,
+                "YMMPX ファイルが壊れているか、内容が正しくありません。", ex);
+        }
     }
 
-    private static System.Reflection.Assembly? ResolveLoadedYmmpxAssembly()
+    private static YmmpxPackageOperationException CreateUnsupportedFormatException(YmmpxFormatDetectionResult detection) => detection.Status switch
     {
-        return AppDomain.CurrentDomain.GetAssemblies()
-            .FirstOrDefault(a => string.Equals(a.GetName().Name, "YmmpxLib", StringComparison.OrdinalIgnoreCase));
-    }
+        YmmpxFormatDetectionStatus.UnsupportedFutureVersion => new(YmmpxPackageOperationError.UnsupportedFutureVersion,
+            $"この YMMPX は現在のライブラリより新しい形式です (v{detection.MajorVersion}.{detection.MinorVersion})。ライブラリを更新してください。"),
+        YmmpxFormatDetectionStatus.UnsupportedMinorVersion => new(YmmpxPackageOperationError.UnsupportedMinorVersion,
+            $"この YMMPX の形式 v{detection.MajorVersion}.{detection.MinorVersion} は現在のライブラリでは未対応です。ライブラリを更新してください。"),
+        YmmpxFormatDetectionStatus.NotYmmpx => new(YmmpxPackageOperationError.NotYmmpx, "選択されたファイルは YMMPX ではありません。"),
+        _ => new(YmmpxPackageOperationError.InvalidPackage, "YMMPX ファイルが壊れているか、内容が正しくありません。")
+    };
 
-    private static string ResolveInstalledYmmpxLibPath()
+    private static string GetProgressMessage(YmmpxV2WriteStage stage) => stage switch
     {
-        var pluginRoot = ResolvePluginRoot();
-        return YMMResourcePackager.Shared.PackagerPaths.GetInstalledYmmpxLibPath(Path.Combine(pluginRoot, "user", "plugin"));
-    }
+        YmmpxV2WriteStage.DiscoveringResources => "素材を確認中",
+        YmmpxV2WriteStage.ProcessingProject => "プロジェクトを処理中",
+        YmmpxV2WriteStage.HashingResource => "素材を処理中",
+        YmmpxV2WriteStage.WritingPackage => "パッケージを書き込み中",
+        YmmpxV2WriteStage.WritingResource => "素材を書き込み中",
+        YmmpxV2WriteStage.Finalizing => "パッケージを確定中",
+        YmmpxV2WriteStage.Completed => "パッケージ作成完了",
+        _ => "パッケージを処理中"
+    };
+}
 
-    private static string ResolvePluginRoot()
-    {
-        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        var marker = Path.Combine("user", "plugin", "YMMResourcePackager") + Path.DirectorySeparatorChar;
-        var normalized = baseDir.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-        var idx = normalized.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
-        if (idx >= 0)
-            return normalized.Substring(0, idx).TrimEnd(Path.DirectorySeparatorChar);
+public sealed record YmmpxUnpackResult(string ProjectFilePath, int ReplacedPathCount, YmmpxFormatDetectionStatus FormatStatus);
 
-        return baseDir.TrimEnd(Path.DirectorySeparatorChar);
-    }
+public enum YmmpxPackageOperationError { ProcessingFailed, UnsupportedFutureVersion, UnsupportedMinorVersion, InvalidPackage, NotYmmpx }
 
-    private static int ConvertToInt32(object? value) { try { return value is null ? 0 : Convert.ToInt32(value); } catch { return 0; } }
-    private static long ConvertToInt64(object? value) { try { return value is null ? 0L : Convert.ToInt64(value); } catch { return 0L; } }
-    private static double ConvertToDouble(object? value) { try { return value is null ? 0.0 : Convert.ToDouble(value); } catch { return 0.0; } }
-
-    private sealed class ObjectProgress<T> : IProgress<T>
-    {
-        private readonly Action<object?> _report;
-        public ObjectProgress(Action<object?> report) { _report = report; }
-        public void Report(T value) { _report(value); }
-    }
+public sealed class YmmpxPackageOperationException : Exception
+{
+    public YmmpxPackageOperationError Error { get; }
+    public YmmpxPackageOperationException(YmmpxPackageOperationError error, string message, Exception? innerException = null) : base(message, innerException) => Error = error;
 }

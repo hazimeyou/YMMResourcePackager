@@ -2,20 +2,24 @@
 
 YMM4 向けのリソースパッカー / アンパッカーです。`.ymmp` プロジェクトを `.ymmpx` にまとめたり、`.ymmpx` を展開して再び編集可能な状態へ戻したりできます。
 
+> `feature/v2-development` では YmmpxLibV2 を正式経路として移行中です。新規作成は YMMPX Format 2.0 です。古い v1 `.ymmpx` の展開は YmmpxLibV2 の互換Readerで行うため、旧 `YmmpxLibPlugin` は不要です。
+
 ## 主な機能
 
 - `.ymmpx` YMMP同梱ファイルを作成
 - `.ymmpx` を展開して `.ymmp` を復元
 - グローバル除外と、プロジェクト単位のローカル除外を分離して管理
 - プロジェクト内で参照されているが見つからない素材も除外候補として扱える
-- `YmmpxLibPlugin` の導入案内
+- `YmmpxLibV2Plugin` の導入案内
 - `.ymmpx` の関連付けと展開先の制御
 
 ## インストール
 
 1. GitHub Releases から `YMMResourcePackager.ymme` をダウンロードします。
 2. YMM4 で `.ymme` を開いてインストールします。
-3. 初回起動時に `YmmpxLibPlugin` の案内が出た場合は、画面の指示に従って導入します。
+3. 初回起動時に `YmmpxLibV2Plugin` の案内が出た場合は、画面の指示に従って導入します。
+
+Format 2.0 では、既存の除外設定、プロジェクトUI設定の含有指定、進捗表示を維持します。ライブラリより新しい形式や未対応minor形式は展開せず、更新が必要であることを案内します。
 
 ## 使い方
 

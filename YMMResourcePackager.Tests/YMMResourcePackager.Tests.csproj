@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
@@ -16,5 +16,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\YMMResourcePackager.Shared\YMMResourcePackager.Shared.csproj" />
+    <ProjectReference Include="..\YMMResourcePackager.Features\YMMResourcePackager.Features.csproj" />
+    <Reference Include="YmmpxLibV2">
+      <HintPath>$(YMM4_PATH)\user\plugin\YmmpxLibV2Plugin\YmmpxLibV2.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 </Project>

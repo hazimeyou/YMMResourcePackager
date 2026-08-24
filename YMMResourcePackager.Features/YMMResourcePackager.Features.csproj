@@ -12,5 +12,14 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\YMMResourcePackager.Shared\YMMResourcePackager.Shared.csproj" />
+    <Reference Include="YmmpxLibV2">
+      <HintPath>$(YMM4_PATH)\user\plugin\YmmpxLibV2Plugin\YmmpxLibV2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
+
+  <Target Name="RequireYmmpxLibV2" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(YMM4_PATH)\user\plugin\YmmpxLibV2Plugin\YmmpxLibV2.dll')"
+           Text="YmmpxLibV2.dll が見つかりません。YmmpxLibV2Plugin を YMM4 の user\\plugin\\YmmpxLibV2Plugin に導入してください。" />
+  </Target>
 </Project>
